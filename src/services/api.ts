@@ -3,6 +3,7 @@ import type {
   AppInfo,
   BlackMarketPriceResponse,
   MaterialPriceResponse,
+  PageResponse,
   RateLimitStatus,
   SortOption,
 } from '../types';
@@ -52,11 +53,13 @@ export const getMaterialPrices = async (): Promise<MaterialPriceResponse[]> => {
 // --- Black Market ---
 
 export const getBlackMarketPrices = async (
+  page: number = 0,
+  size: number = 20,
   sortBy: string = 'PRICE',
   sortDirection: 'ASC' | 'DESC' = 'DESC'
-): Promise<BlackMarketPriceResponse[]> => {
-  const { data } = await api.get<BlackMarketPriceResponse[]>('/api/black-market', {
-    params: { sortBy, sortDirection },
+): Promise<PageResponse<BlackMarketPriceResponse>> => {
+  const { data } = await api.get<PageResponse<BlackMarketPriceResponse>>('/api/black-market', {
+    params: { page, size, sortBy, sortDirection },
   });
   return data;
 };

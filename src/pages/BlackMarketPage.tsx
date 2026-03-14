@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   IonContent,
   IonHeader,
@@ -14,17 +14,17 @@ import {
   IonAlert,
   IonSelect,
   IonSelectOption,
-  IonSegment,
-  IonSegmentButton,
   IonLabel,
   IonList,
   IonItem,
   IonNote,
   IonBadge,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
   useIonViewWillEnter,
   useIonToast,
 } from '@ionic/react';
-import { refreshOutline } from 'ionicons/icons';
+import { refreshOutline, arrowDownOutline, arrowUpOutline } from 'ionicons/icons';
 import {
   getBlackMarketPrices,
   getBlackMarketSortOptions,
@@ -67,45 +67,68 @@ const BlackMarketPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('PRICE');
   const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
   const [presentToast] = useIonToast();
 
-  const fetchData = async () => {
+  const fetchItems = useCallback(
+    async (
+      pageNum: number = 0,
+      reset: boolean = false,
+      sortByOverride?: string,
+      sortDirectionOverride?: 'ASC' | 'DESC'
+    ) => {
+      const sort = sortByOverride ?? sortBy;
+      const direction = sortDirectionOverride ?? sortDirection;
+      try {
+        const data = await getBlackMarketPrices(pageNum, 20, sort, direction);
+        if (reset) {
+          setItems(data.content);
+        } else {
+          setItems((prev) => [...prev, ...data.content]);
+        }
+        setHasMore(!data.last);
+        setPage(pageNum);
+        setTotalElements(data.totalElements);
+      } catch {
+        setItems((prev) => (reset ? [] : prev));
+        setHasMore(false);
+        if (reset) setError('Impossibile caricare i dati del Black Market.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [sortBy, sortDirection]
+  );
+
+  const fetchInitial = async () => {
     try {
       setError(null);
       setLoading(true);
-      const [pricesData, optionsData] = await Promise.all([
-        getBlackMarketPrices(sortBy, sortDirection),
-        getBlackMarketSortOptions(),
-      ]);
-      setItems(pricesData);
+      const optionsData = await getBlackMarketSortOptions();
       setSortOptions(optionsData);
-    } catch {
-      setError('Impossibile caricare i dati del Black Market.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPricesOnly = async () => {
-    try {
-      setError(null);
-      const data = await getBlackMarketPrices(sortBy, sortDirection);
-      setItems(data);
-    } catch {
-      setError('Errore nel caricamento.');
-    }
+    } catch { /* ignore */ }
+    await fetchItems(0, true);
   };
 
   useIonViewWillEnter(() => {
-    fetchData();
+    fetchInitial();
   });
 
   const handleRefresh = async (event: CustomEvent) => {
-    await fetchData();
+    setError(null);
+    setLoading(true);
+    await fetchItems(0, true);
     event.detail.complete();
+  };
+
+  const loadMore = async (event: CustomEvent) => {
+    await fetchItems(page + 1);
+    (event.target as HTMLIonInfiniteScrollElement).complete();
   };
 
   const handleForceUpdate = async () => {
@@ -118,7 +141,8 @@ const BlackMarketPage: React.FC = () => {
         color: 'success',
         position: 'top',
       });
-      await fetchPricesOnly();
+      setLoading(true);
+      await fetchItems(0, true);
     } catch {
       presentToast({
         message: "Errore durante l'aggiornamento.",
@@ -131,20 +155,17 @@ const BlackMarketPage: React.FC = () => {
     }
   };
 
-  const handleSortChange = async (newSortBy: string) => {
+  const handleSortChange = (newSortBy: string) => {
     setSortBy(newSortBy);
-    try {
-      const data = await getBlackMarketPrices(newSortBy, sortDirection);
-      setItems(data);
-    } catch { /* ignore */ }
+    setLoading(true);
+    fetchItems(0, true, newSortBy, sortDirection);
   };
 
-  const handleDirectionChange = async (newDir: 'ASC' | 'DESC') => {
-    setSortDirection(newDir);
-    try {
-      const data = await getBlackMarketPrices(sortBy, newDir);
-      setItems(data);
-    } catch { /* ignore */ }
+  const handleSortDirectionToggle = () => {
+    const next = sortDirection === 'DESC' ? 'ASC' : 'DESC';
+    setSortDirection(next);
+    setLoading(true);
+    fetchItems(0, true, sortBy, next);
   };
 
   return (
@@ -168,23 +189,44 @@ const BlackMarketPage: React.FC = () => {
         {updating && <IonProgressBar type="indeterminate" color="danger" />}
 
         <div className="bm-container">
-          {/* Actions */}
-          <div className="bm-actions">
+          {/* Toolbar */}
+          <div className="bm-toolbar">
+            {sortOptions.length > 0 && (
+              <IonItem className="bm-sort-selector" lines="none">
+                <IonLabel>Ordina per</IonLabel>
+                <IonSelect
+                  value={sortBy}
+                  onIonChange={(e) => handleSortChange(e.detail.value)}
+                  interface="popover"
+                  placeholder="Ordina"
+                >
+                  {sortOptions.map((opt) => (
+                    <IonSelectOption key={opt.code} value={opt.code}>
+                      {opt.displayName}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
+              </IonItem>
+            )}
             <IonButton
-              expand="block"
-              fill="outline"
-              color="danger"
-              className="bm-update-button"
+              fill="clear"
+              className="bm-toolbar-icon-btn"
+              onClick={handleSortDirectionToggle}
+              title={sortDirection === 'DESC' ? 'Decrescente' : 'Crescente'}
+            >
+              <IonIcon icon={sortDirection === 'DESC' ? arrowDownOutline : arrowUpOutline} />
+            </IonButton>
+            <IonButton
+              fill="clear"
+              className="bm-toolbar-icon-btn"
               onClick={() => setShowConfirm(true)}
               disabled={updating}
+              title="Aggiorna prezzi"
             >
               {updating ? (
                 <IonSpinner name="dots" />
               ) : (
-                <>
-                  <IonIcon icon={refreshOutline} slot="start" />
-                  Aggiorna Black Market
-                </>
+                <IonIcon icon={refreshOutline} />
               )}
             </IonButton>
           </div>
@@ -200,42 +242,9 @@ const BlackMarketPage: React.FC = () => {
             ]}
           />
 
-          {/* Sort controls */}
-          {sortOptions.length > 0 && (
-            <div className="bm-sort-controls">
-              <div className="bm-sort-select-wrapper">
-                <IonSelect
-                  value={sortBy}
-                  onIonChange={(e) => handleSortChange(e.detail.value)}
-                  interface="popover"
-                  label="Ordina per"
-                  labelPlacement="stacked"
-                >
-                  {sortOptions.map((opt) => (
-                    <IonSelectOption key={opt.code} value={opt.code}>
-                      {opt.displayName}
-                    </IonSelectOption>
-                  ))}
-                </IonSelect>
-              </div>
-              <IonSegment
-                value={sortDirection}
-                onIonChange={(e) => handleDirectionChange(e.detail.value as 'ASC' | 'DESC')}
-                className="bm-direction-segment"
-              >
-                <IonSegmentButton value="ASC">
-                  <IonLabel>ASC</IonLabel>
-                </IonSegmentButton>
-                <IonSegmentButton value="DESC">
-                  <IonLabel>DESC</IonLabel>
-                </IonSegmentButton>
-              </IonSegment>
-            </div>
-          )}
-
           {/* Item count */}
-          {!loading && items.length > 0 && (
-            <p className="bm-count">{items.length} item trovati</p>
+          {!loading && totalElements > 0 && (
+            <p className="bm-count">{totalElements} item totali</p>
           )}
 
           {/* Loading */}
@@ -262,25 +271,30 @@ const BlackMarketPage: React.FC = () => {
 
           {/* Item list */}
           {!loading && !error && items.length > 0 && (
-            <IonList className="bm-list">
-              {items.map((item) => (
-                <IonItem key={item.itemId} className="bm-item">
-                  <div className="bm-item-left" slot="start">
-                    <span className="bm-tier">{formatTier(item.tier, item.enchantment)}</span>
-                    <IonBadge color={getCategoryColor(item.category)} className="bm-category-badge">
-                      {item.category.charAt(0)}
-                    </IonBadge>
-                  </div>
-                  <IonLabel>
-                    <h3 className="bm-item-name">{cleanItemName(item.itemId)}</h3>
-                  </IonLabel>
-                  <IonNote slot="end" className="bm-prices">
-                    <span className="bm-sell">{formatPrice(item.sellPriceMin)}</span>
-                    <span className="bm-buy">{formatPrice(item.buyPriceMax)}</span>
-                  </IonNote>
-                </IonItem>
-              ))}
-            </IonList>
+            <>
+              <IonList className="bm-list">
+                {items.map((item) => (
+                  <IonItem key={item.itemId} className="bm-item">
+                    <div className="bm-item-left" slot="start">
+                      <span className="bm-tier">{formatTier(item.tier, item.enchantment)}</span>
+                      <IonBadge color={getCategoryColor(item.category)} className="bm-category-badge">
+                        {item.category.charAt(0)}
+                      </IonBadge>
+                    </div>
+                    <IonLabel>
+                      <h3 className="bm-item-name">{cleanItemName(item.itemId)}</h3>
+                    </IonLabel>
+                    <IonNote slot="end" className="bm-prices">
+                      <span className="bm-sell">{formatPrice(item.sellPriceMin)}</span>
+                      <span className="bm-buy">{formatPrice(item.buyPriceMax)}</span>
+                    </IonNote>
+                  </IonItem>
+                ))}
+              </IonList>
+              <IonInfiniteScroll disabled={!hasMore} onIonInfinite={loadMore}>
+                <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Caricamento..." />
+              </IonInfiniteScroll>
+            </>
           )}
         </div>
       </IonContent>

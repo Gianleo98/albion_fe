@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   IonContent,
   IonHeader,
@@ -53,6 +53,34 @@ const groupByMaterial = (prices: MaterialPriceResponse[]) => {
     groups[p.materialType].push(p);
   }
   return groups;
+};
+
+const useDragScroll = () => {
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    isDragging.current = true;
+    startX.current = e.clientX;
+    scrollLeft.current = el.scrollLeft;
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = 'grabbing';
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current) return;
+    const dx = e.clientX - startX.current;
+    e.currentTarget.scrollLeft = scrollLeft.current - dx;
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    isDragging.current = false;
+    e.currentTarget.style.cursor = '';
+  }, []);
+
+  return { onPointerDown, onPointerMove, onPointerUp };
 };
 
 const HomePage: React.FC = () => {
@@ -113,6 +141,7 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const drag = useDragScroll();
   const grouped = groupByMaterial(prices);
   const lastUpdate = prices.length > 0 ? prices[0].updatedAt : null;
 
@@ -221,7 +250,13 @@ const HomePage: React.FC = () => {
                 return (
                   <div key={type} className="material-strip">
                     <h3 className="strip-title">{MATERIAL_LABELS[type] ?? type}</h3>
-                    <div className="strip-scroll">
+                    <div
+                      className="strip-scroll"
+                      onPointerDown={drag.onPointerDown}
+                      onPointerMove={drag.onPointerMove}
+                      onPointerUp={drag.onPointerUp}
+                      onPointerCancel={drag.onPointerUp}
+                    >
                       {items.map((item) => (
                         <div key={item.itemId} className="material-card">
                           {item.iconUrl && (

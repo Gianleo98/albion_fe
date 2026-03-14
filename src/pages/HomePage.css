@@ -107,6 +107,9 @@
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-x;
 }
 
 .strip-scroll::-webkit-scrollbar {
