@@ -10,10 +10,11 @@ import {
   setupIonicReact,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { homeOutline, storefrontOutline } from 'ionicons/icons';
+import { homeOutline, storefrontOutline, hammerOutline } from 'ionicons/icons';
 
 import HomePage from './pages/HomePage';
 import BlackMarketPage from './pages/BlackMarketPage';
+import CraftingPage from './pages/CraftingPage';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -56,6 +57,9 @@ const App: React.FC = () => (
           <Route exact path="/black-market">
             <BlackMarketPage />
           </Route>
+          <Route exact path="/crafting">
+            <CraftingPage />
+          </Route>
           <Route exact path="/">
             <Redirect to="/home" />
           </Route>
@@ -69,6 +73,10 @@ const App: React.FC = () => (
           <IonTabButton tab="black-market" href="/black-market">
             <IonIcon icon={storefrontOutline} />
             <IonLabel>Black Market</IonLabel>
+          </IonTabButton>
+          <IonTabButton tab="crafting" href="/crafting">
+            <IonIcon icon={hammerOutline} />
+            <IonLabel>Crafting</IonLabel>
           </IonTabButton>
         </IonTabBar>
       </IonTabs>

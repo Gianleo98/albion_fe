@@ -2,6 +2,7 @@ import axios from 'axios';
 import type {
   AppInfo,
   BlackMarketPriceResponse,
+  CraftingProfitResponse,
   MaterialPriceResponse,
   PageResponse,
   RateLimitStatus,
@@ -80,6 +81,25 @@ export const triggerPriceUpdate = async (): Promise<{ message: string; itemsUpda
 
 export const triggerBlackMarketUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
   const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-black-market');
+  return data;
+};
+
+// --- Crafting Profit ---
+
+export const getCraftingProfits = async (
+  page: number = 0,
+  size: number = 20,
+  sortBy: string = 'PROFIT',
+  sortDirection: 'ASC' | 'DESC' = 'DESC'
+): Promise<PageResponse<CraftingProfitResponse>> => {
+  const { data } = await api.get<PageResponse<CraftingProfitResponse>>('/api/crafting-profit', {
+    params: { page, size, sortBy, sortDirection },
+  });
+  return data;
+};
+
+export const getCraftingProfitSortOptions = async (): Promise<SortOption[]> => {
+  const { data } = await api.get<SortOption[]>('/api/enums/crafting-profit-sort-options');
   return data;
 };
 

@@ -1,0 +1,197 @@
+.cp-container {
+  padding: 0 0 16px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Toolbar */
+.cp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 8px 14px;
+  padding: 0 4px;
+}
+
+.cp-toolbar .cp-sort-selector {
+  flex: 1;
+  --padding-start: 12px;
+  --inner-padding-end: 12px;
+  --min-height: 48px;
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.cp-toolbar .cp-sort-selector ion-label {
+  font-weight: 600;
+}
+
+.cp-toolbar .cp-toolbar-icon-btn {
+  flex-shrink: 0;
+  margin: 0;
+  --padding-start: 12px;
+  --padding-end: 12px;
+  font-size: 1.4rem;
+}
+
+/* Count */
+.cp-count {
+  font-size: 0.78rem;
+  color: var(--ion-color-medium);
+  margin: 0 0 8px 16px;
+}
+
+/* List */
+.cp-list {
+  --ion-item-border-color: rgba(146, 148, 156, 0.15);
+}
+
+.cp-item {
+  --padding-start: 8px;
+  --inner-padding-end: 10px;
+  --min-height: 80px;
+}
+
+.cp-item-left {
+  display: flex;
+  align-items: center;
+}
+
+.cp-item-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-right: 4px;
+}
+
+.cp-no-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  color: var(--ion-color-medium);
+  opacity: 0.5;
+  margin-right: 4px;
+  text-transform: uppercase;
+}
+
+.cp-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Resources row */
+.cp-resources {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+.cp-res-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.cp-res-qty {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ion-color-medium);
+}
+
+.cp-res-price {
+  font-size: 0.72rem;
+  color: var(--ion-color-medium);
+  margin-right: 2px;
+}
+
+.cp-res-sep {
+  font-size: 0.72rem;
+  color: var(--ion-color-medium);
+  margin: 0 1px;
+}
+
+/* Meta row */
+.cp-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cp-rrr {
+  font-size: 0.68rem;
+  color: var(--ion-color-medium);
+}
+
+.cp-bonus-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(var(--ion-color-success-rgb), 0.15);
+  color: var(--ion-color-success);
+}
+
+/* Profit column */
+.cp-profit-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 90px;
+}
+
+.cp-profit {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.cp-profit.positive {
+  color: var(--ion-color-success);
+}
+
+.cp-profit.negative {
+  color: #e57373;
+}
+
+.cp-bm-price {
+  font-size: 0.7rem;
+  color: var(--ion-color-tertiary);
+}
+
+.cp-cost {
+  font-size: 0.7rem;
+  color: var(--ion-color-medium);
+}
+
+/* States */
+.cp-state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.cp-state-container ion-spinner {
+  width: 40px;
+  height: 40px;
+}
+
+.cp-state-container p {
+  margin: 2px 0;
+  color: var(--ion-color-medium);
+}

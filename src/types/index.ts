@@ -68,6 +68,31 @@ export interface SortOption {
   isDefault: boolean;
 }
 
+// --- Crafting Profit ---
+
+export interface CraftingProfitResponse {
+  itemId: string;
+  tier: number;
+  iconUrl: string | null;
+  bonusCategory: string | null;
+  primaryResourceId: string;
+  primaryResourcePrice: number;
+  primaryResourceQty: number;
+  primaryResourceIconUrl: string | null;
+  secondaryResourceId: string | null;
+  secondaryResourcePrice: number;
+  secondaryResourceQty: number;
+  secondaryResourceIconUrl: string | null;
+  totalMaterialCost: number;
+  effectiveCost: number;
+  bmSellPrice: number;
+  profit: number;
+  profitPercentage: number;
+  returnRate: number;
+  hasCityBonus: boolean;
+  updatedAt: string;
+}
+
 // --- Rate Limit ---
 
 export interface RateLimitStatus {
