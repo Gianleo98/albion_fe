@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Albus</string>
+    <string name="title_activity_main">Albus</string>
+    <string name="package_name">com.janraion.albion</string>
+    <string name="custom_url_scheme">com.janraion.albion</string>
+</resources>
