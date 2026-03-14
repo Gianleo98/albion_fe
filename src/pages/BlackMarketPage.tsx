@@ -1,40 +1,30 @@
 import { useCallback, useState } from 'react';
 import {
   IonContent,
-  IonHeader,
   IonPage,
-  IonToolbar,
-  IonTitle,
   IonSpinner,
   IonRefresher,
   IonRefresherContent,
-  IonProgressBar,
   IonButton,
   IonIcon,
-  IonAlert,
   IonSelect,
   IonSelectOption,
   IonLabel,
   IonList,
   IonItem,
   IonNote,
-  IonBadge,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
   useIonViewWillEnter,
-  useIonToast,
 } from '@ionic/react';
-import { refreshOutline, arrowDownOutline, arrowUpOutline } from 'ionicons/icons';
+import { arrowDownOutline, arrowUpOutline } from 'ionicons/icons';
 import {
   getBlackMarketPrices,
   getBlackMarketSortOptions,
-  triggerBlackMarketUpdate,
 } from '../services/api';
 import type { BlackMarketPriceResponse, SortOption } from '../types';
+import AppHeader from '../components/AppHeader';
 import './BlackMarketPage.css';
-
-const formatTier = (tier: number, enchantment: number) =>
-  enchantment > 0 ? `T${tier}.${enchantment}` : `T${tier}`;
 
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
@@ -46,19 +36,10 @@ const cleanItemName = (itemId: string): string => {
   }
   const levelIdx = name.indexOf('_LEVEL');
   if (levelIdx >= 0) name = name.substring(0, levelIdx);
+  name = name.replace(/^2H_/, '').replace(/^MAIN_/, '').replace(/^OFF_/, '');
   return name
     .replaceAll('_', ' ')
     .replaceAll(/\b\w/g, (c) => c.toUpperCase());
-};
-
-const getCategoryColor = (category: string) => {
-  switch (category) {
-    case 'WEAPON': return 'danger';
-    case 'ARMOR': return 'primary';
-    case 'OFFHAND': return 'warning';
-    case 'ACCESSORY': return 'tertiary';
-    default: return 'medium';
-  }
 };
 
 const BlackMarketPage: React.FC = () => {
@@ -69,11 +50,9 @@ const BlackMarketPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalElements, setTotalElements] = useState(0);
-  const [presentToast] = useIonToast();
+  const [expandedIcon, setExpandedIcon] = useState<string | null>(null);
 
   const fetchItems = useCallback(
     async (
@@ -131,28 +110,9 @@ const BlackMarketPage: React.FC = () => {
     (event.target as HTMLIonInfiniteScrollElement).complete();
   };
 
-  const handleForceUpdate = async () => {
-    setUpdating(true);
-    try {
-      const result = await triggerBlackMarketUpdate();
-      presentToast({
-        message: `${result.message} (${result.itemsUpdated} item)`,
-        duration: 2500,
-        color: 'success',
-        position: 'top',
-      });
-      setLoading(true);
-      await fetchItems(0, true);
-    } catch {
-      presentToast({
-        message: "Errore durante l'aggiornamento.",
-        duration: 2500,
-        color: 'danger',
-        position: 'top',
-      });
-    } finally {
-      setUpdating(false);
-    }
+  const handleBlackMarketUpdated = () => {
+    setLoading(true);
+    fetchItems(0, true);
   };
 
   const handleSortChange = (newSortBy: string) => {
@@ -170,26 +130,14 @@ const BlackMarketPage: React.FC = () => {
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Black Market</IonTitle>
-        </IonToolbar>
-      </IonHeader>
+      <AppHeader onBlackMarketUpdated={handleBlackMarketUpdated} />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
         </IonRefresher>
 
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Black Market</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-
-        {updating && <IonProgressBar type="indeterminate" color="danger" />}
-
         <div className="bm-container">
-          {/* Toolbar */}
+          {/* Sort toolbar */}
           <div className="bm-toolbar">
             {sortOptions.length > 0 && (
               <IonItem className="bm-sort-selector" lines="none">
@@ -216,31 +164,7 @@ const BlackMarketPage: React.FC = () => {
             >
               <IonIcon icon={sortDirection === 'DESC' ? arrowDownOutline : arrowUpOutline} />
             </IonButton>
-            <IonButton
-              fill="clear"
-              className="bm-toolbar-icon-btn"
-              onClick={() => setShowConfirm(true)}
-              disabled={updating}
-              title="Aggiorna prezzi"
-            >
-              {updating ? (
-                <IonSpinner name="dots" />
-              ) : (
-                <IonIcon icon={refreshOutline} />
-              )}
-            </IonButton>
           </div>
-
-          <IonAlert
-            isOpen={showConfirm}
-            onDidDismiss={() => setShowConfirm(false)}
-            header="Aggiorna Black Market"
-            message="Vuoi forzare l'aggiornamento dei prezzi del Black Market? (~22 chiamate API)"
-            buttons={[
-              { text: 'Annulla', role: 'cancel' },
-              { text: 'Aggiorna', handler: handleForceUpdate },
-            ]}
-          />
 
           {/* Item count */}
           {!loading && totalElements > 0 && (
@@ -265,7 +189,7 @@ const BlackMarketPage: React.FC = () => {
           {!loading && !error && items.length === 0 && (
             <div className="bm-state-container">
               <p>Nessun dato disponibile.</p>
-              <p>Forza un aggiornamento per iniziare.</p>
+              <p>Forza un aggiornamento dalle impostazioni.</p>
             </div>
           )}
 
@@ -275,12 +199,23 @@ const BlackMarketPage: React.FC = () => {
               <IonList className="bm-list">
                 {items.map((item) => (
                   <IonItem key={item.itemId} className="bm-item">
-                    <div className="bm-item-left" slot="start">
-                      <span className="bm-tier">{formatTier(item.tier, item.enchantment)}</span>
-                      <IonBadge color={getCategoryColor(item.category)} className="bm-category-badge">
-                        {item.category.charAt(0)}
-                      </IonBadge>
-                    </div>
+                    {item.iconUrl ? (
+                      <button
+                        type="button"
+                        className="bm-icon-btn"
+                        slot="start"
+                        onClick={() => setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)}
+                      >
+                        <img
+                          src={item.iconUrl}
+                          alt={cleanItemName(item.itemId)}
+                          className={`bm-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                          loading="lazy"
+                        />
+                      </button>
+                    ) : (
+                      <span className="bm-no-icon" slot="start">no icon</span>
+                    )}
                     <IonLabel>
                       <h3 className="bm-item-name">{cleanItemName(item.itemId)}</h3>
                     </IonLabel>

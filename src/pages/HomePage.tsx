@@ -1,23 +1,17 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   IonContent,
-  IonHeader,
+  IonIcon,
   IonPage,
-  IonToolbar,
-  IonTitle,
   IonSpinner,
   IonRefresher,
   IonRefresherContent,
-  IonProgressBar,
-  IonButton,
-  IonIcon,
-  IonAlert,
   useIonViewWillEnter,
-  useIonToast,
 } from '@ionic/react';
-import { refreshOutline } from 'ionicons/icons';
-import { getMaterialPrices, getRateLimitStatus, triggerPriceUpdate } from '../services/api';
-import type { MaterialPriceResponse, RateLimitStatus } from '../types';
+import { funnelOutline, funnel, timeOutline } from 'ionicons/icons';
+import { getMaterialPrices } from '../services/api';
+import type { MaterialPriceResponse } from '../types';
+import AppHeader from '../components/AppHeader';
 import './HomePage.css';
 
 const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR'];
@@ -29,21 +23,14 @@ const MATERIAL_LABELS: Record<string, string> = {
   METALBAR: 'Metal Bar',
 };
 
-const formatTier = (tier: number, enchantment: number) =>
-  enchantment > 0 ? `T${tier}.${enchantment}` : `T${tier}`;
-
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
 
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleString('it-IT', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const getPriceColor = (sell: number, avg7d: number): string => {
+  if (sell <= 0 || avg7d <= 0) return 'var(--ion-color-medium)';
+  if (sell < avg7d) return '#34d399';
+  if (sell > avg7d) return '#f87171';
+  return 'var(--ion-color-medium)';
 };
 
 const groupByMaterial = (prices: MaterialPriceResponse[]) => {
@@ -85,23 +72,16 @@ const useDragScroll = () => {
 
 const HomePage: React.FC = () => {
   const [prices, setPrices] = useState<MaterialPriceResponse[]>([]);
-  const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [presentToast] = useIonToast();
+  const [filterBelow, setFilterBelow] = useState<Record<string, boolean>>({});
 
   const fetchData = async () => {
     try {
       setError(null);
       setLoading(true);
-      const [pricesData, rateLimitData] = await Promise.all([
-        getMaterialPrices(),
-        getRateLimitStatus(),
-      ]);
+      const pricesData = await getMaterialPrices();
       setPrices(pricesData);
-      setRateLimit(rateLimitData);
     } catch {
       setError('Impossibile connettersi al backend.');
     } finally {
@@ -118,52 +98,17 @@ const HomePage: React.FC = () => {
     event.detail.complete();
   };
 
-  const handleForceUpdate = async () => {
-    setUpdating(true);
-    try {
-      const result = await triggerPriceUpdate();
-      presentToast({
-        message: `${result.message} (${result.itemsUpdated} item)`,
-        duration: 2500,
-        color: 'success',
-        position: 'top',
-      });
-      await fetchData();
-    } catch {
-      presentToast({
-        message: "Errore durante l'aggiornamento dei prezzi.",
-        duration: 2500,
-        color: 'danger',
-        position: 'top',
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
-
   const drag = useDragScroll();
   const grouped = groupByMaterial(prices);
   const lastUpdate = prices.length > 0 ? prices[0].updatedAt : null;
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Albus</IonTitle>
-        </IonToolbar>
-      </IonHeader>
+      <AppHeader onMaterialsUpdated={fetchData} lastUpdate={lastUpdate} />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
         </IonRefresher>
-
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Albus</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-
-        {updating && <IonProgressBar type="indeterminate" color="primary" />}
 
         <div className="home-container">
           {/* Branding */}
@@ -177,47 +122,6 @@ const HomePage: React.FC = () => {
             <p className="logo-subtitle">Lymhurst Market Tracker</p>
             <p className="logo-credit">Developed by Janraion</p>
           </div>
-
-          {/* Rate limit + Update */}
-          <div className="actions-section">
-            {rateLimit && (
-              <p className="rate-limit-text">
-                API: {rateLimit.callsRemaining}/{rateLimit.maxCalls} chiamate disponibili
-              </p>
-            )}
-            <IonButton
-              expand="block"
-              fill="outline"
-              className="update-button"
-              onClick={() => setShowConfirm(true)}
-              disabled={updating}
-            >
-              {updating ? (
-                <IonSpinner name="dots" />
-              ) : (
-                <>
-                  <IonIcon icon={refreshOutline} slot="start" />
-                  Aggiorna Prezzi
-                </>
-              )}
-            </IonButton>
-            {lastUpdate && (
-              <p className="last-update-text">
-                Ultimo aggiornamento: {formatDate(lastUpdate)}
-              </p>
-            )}
-          </div>
-
-          <IonAlert
-            isOpen={showConfirm}
-            onDidDismiss={() => setShowConfirm(false)}
-            header="Aggiorna Prezzi"
-            message="Vuoi forzare l'aggiornamento dei prezzi dal market di Lymhurst?"
-            buttons={[
-              { text: 'Annulla', role: 'cancel' },
-              { text: 'Aggiorna', handler: handleForceUpdate },
-            ]}
-          />
 
           {/* Loading */}
           {loading && (
@@ -237,7 +141,7 @@ const HomePage: React.FC = () => {
           {!loading && !error && prices.length === 0 && (
             <div className="state-container">
               <p>Nessun dato disponibile.</p>
-              <p>Forza un aggiornamento per iniziare.</p>
+              <p>Forza un aggiornamento dalle impostazioni.</p>
             </div>
           )}
 
@@ -245,11 +149,24 @@ const HomePage: React.FC = () => {
           {!loading && !error && prices.length > 0 && (
             <div className="material-strips">
               {MATERIAL_ORDER.map((type) => {
-                const items = grouped[type];
-                if (!items || items.length === 0) return null;
+                const allItems = grouped[type];
+                if (!allItems || allItems.length === 0) return null;
+                const isFiltered = !!filterBelow[type];
+                const items = isFiltered
+                  ? allItems.filter((i) => i.sellPriceMin > 0 && i.avgPrice7d > 0 && i.sellPriceMin < i.avgPrice7d)
+                  : allItems;
                 return (
                   <div key={type} className="material-strip">
-                    <h3 className="strip-title">{MATERIAL_LABELS[type] ?? type}</h3>
+                    <div className="strip-header">
+                      <span className="strip-title">{MATERIAL_LABELS[type] ?? type}</span>
+                      <button
+                        className={`strip-filter-btn ${isFiltered ? 'active' : ''}`}
+                        onClick={() => setFilterBelow((prev) => ({ ...prev, [type]: !prev[type] }))}
+                        title="Mostra solo sotto media 7g"
+                      >
+                        <IonIcon icon={isFiltered ? funnel : funnelOutline} />
+                      </button>
+                    </div>
                     <div
                       className="strip-scroll"
                       onPointerDown={drag.onPointerDown}
@@ -257,7 +174,9 @@ const HomePage: React.FC = () => {
                       onPointerUp={drag.onPointerUp}
                       onPointerCancel={drag.onPointerUp}
                     >
-                      {items.map((item) => (
+                      {items.length === 0 ? (
+                        <span className="strip-empty">Nessun item sotto media</span>
+                      ) : items.map((item) => (
                         <div key={item.itemId} className="material-card">
                           {item.iconUrl && (
                             <img
@@ -267,12 +186,17 @@ const HomePage: React.FC = () => {
                               loading="lazy"
                             />
                           )}
-                          <span className="card-tier">
-                            {formatTier(item.tier, item.enchantment)}
-                          </span>
                           <div className="card-prices">
-                            <span className="card-sell">{formatPrice(item.sellPriceMin)}</span>
-                            <span className="card-buy">{formatPrice(item.buyPriceMax)}</span>
+                            <span
+                              className="card-sell"
+                              style={{ color: getPriceColor(item.sellPriceMin, item.avgPrice7d) }}
+                            >
+                              {formatPrice(item.sellPriceMin)}
+                            </span>
+                            <span className="card-avg">
+                              <IonIcon icon={timeOutline} className="card-avg-icon" />
+                              {item.avgPrice7d > 0 ? formatPrice(item.avgPrice7d) : '—'}
+                            </span>
                           </div>
                         </div>
                       ))}

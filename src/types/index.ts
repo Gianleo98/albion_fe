@@ -38,6 +38,7 @@ export interface MaterialPriceResponse {
   sellPriceMinDate: string | null;
   buyPriceMax: number;
   buyPriceMaxDate: string | null;
+  avgPrice7d: number;
   iconUrl: string | null;
   location: string;
   updatedAt: string;
@@ -54,6 +55,7 @@ export interface BlackMarketPriceResponse {
   sellPriceMinDate: string | null;
   buyPriceMax: number;
   buyPriceMaxDate: string | null;
+  iconUrl: string | null;
   location: string;
   updatedAt: string;
 }
