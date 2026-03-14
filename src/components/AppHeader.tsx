@@ -14,6 +14,7 @@ import {
   IonProgressBar,
   useIonToast,
 } from '@ionic/react';
+import { useHistory } from 'react-router-dom';
 import { settingsOutline, layersOutline, storefrontOutline } from 'ionicons/icons';
 import { triggerPriceUpdate, triggerBlackMarketUpdate, getRateLimitStatus } from '../services/api';
 import type { RateLimitStatus } from '../types';
@@ -36,6 +37,7 @@ const formatDate = (dateStr: string) => {
 };
 
 const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarketUpdated, lastUpdate }) => {
+  const history = useHistory();
   const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [updatingMaterials, setUpdatingMaterials] = useState(false);
@@ -108,9 +110,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
-            <div className="header-logo-wrapper">
+            <button type="button" className="header-logo-wrapper" onClick={() => history.push('/home')}>
               <img src="/assets/logo_homepage.png" alt="Albus" className="header-logo" />
-            </div>
+            </button>
           </IonButtons>
           <IonButtons slot="end">
             <IonButton onClick={(e) => handleOpenPopover(e)}>

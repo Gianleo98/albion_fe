@@ -118,7 +118,6 @@ const HomePage: React.FC = () => {
               alt="Albion Online"
               className="albion-logo"
             />
-            <h1 className="logo-title">Albus</h1>
             <p className="logo-subtitle">Lymhurst Market Tracker</p>
             <p className="logo-credit">Developed by Janraion</p>
           </div>
