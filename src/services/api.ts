@@ -84,6 +84,11 @@ export const triggerBlackMarketUpdate = async (): Promise<{ message: string; ite
   return data;
 };
 
+export const triggerCraftingProfitUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
+  const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-crafting-profit');
+  return data;
+};
+
 // --- Crafting Profit ---
 
 export const getCraftingProfits = async (

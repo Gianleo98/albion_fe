@@ -119,7 +119,7 @@ const CraftingPage: React.FC = () => {
 
   return (
     <IonPage>
-      <AppHeader />
+      <AppHeader onCraftingUpdated={() => { setLoading(true); fetchItems(0, true); }} />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
@@ -190,6 +190,14 @@ const CraftingPage: React.FC = () => {
                           alt={cleanItemName(item.itemId)}
                           className="cp-item-icon"
                           loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const fallback = document.createElement('span');
+                            fallback.className = 'cp-no-icon';
+                            fallback.textContent = 'no icon';
+                            target.parentElement?.appendChild(fallback);
+                          }}
                         />
                       ) : (
                         <span className="cp-no-icon">no icon</span>

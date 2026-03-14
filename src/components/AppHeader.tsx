@@ -15,14 +15,15 @@ import {
   useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
-import { settingsOutline, layersOutline, storefrontOutline } from 'ionicons/icons';
-import { triggerPriceUpdate, triggerBlackMarketUpdate, getRateLimitStatus } from '../services/api';
+import { settingsOutline, layersOutline, storefrontOutline, hammerOutline } from 'ionicons/icons';
+import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, getRateLimitStatus } from '../services/api';
 import type { RateLimitStatus } from '../types';
 import './AppHeader.css';
 
 interface AppHeaderProps {
   onMaterialsUpdated?: () => void;
   onBlackMarketUpdated?: () => void;
+  onCraftingUpdated?: () => void;
   lastUpdate?: string | null;
 }
 
@@ -36,13 +37,14 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarketUpdated, lastUpdate }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarketUpdated, onCraftingUpdated, lastUpdate }) => {
   const history = useHistory();
   const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [updatingMaterials, setUpdatingMaterials] = useState(false);
   const [updatingBM, setUpdatingBM] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | null>(null);
+  const [updatingCrafting, setUpdatingCrafting] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | 'crafting' | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [presentToast] = useIonToast();
 
@@ -103,7 +105,31 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
     }
   };
 
-  const updating = updatingMaterials || updatingBM;
+  const handleUpdateCrafting = async () => {
+    setConfirmAction(null);
+    setUpdatingCrafting(true);
+    try {
+      const result = await triggerCraftingProfitUpdate();
+      presentToast({
+        message: `${result.message} (${result.itemsUpdated} item)`,
+        duration: 2500,
+        color: 'success',
+        position: 'top',
+      });
+      onCraftingUpdated?.();
+    } catch {
+      presentToast({
+        message: 'Errore durante il calcolo del crafting profit.',
+        duration: 2500,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setUpdatingCrafting(false);
+    }
+  };
+
+  const updating = updatingMaterials || updatingBM || updatingCrafting;
 
   return (
     <>
@@ -160,6 +186,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
               : <IonIcon icon={storefrontOutline} slot="start" />}
             <IonLabel>Aggiorna Black Market</IonLabel>
           </IonItem>
+          <IonItem
+            button
+            detail={false}
+            disabled={updatingCrafting}
+            onClick={() => {
+              setPopoverOpen(false);
+              setConfirmAction('crafting');
+            }}
+          >
+            {updatingCrafting
+              ? <IonSpinner name="dots" slot="start" />
+              : <IonIcon icon={hammerOutline} slot="start" />}
+            <IonLabel>Ricalcola Crafting</IonLabel>
+          </IonItem>
           <div className="popover-footer">
             {lastUpdate && (
               <span className="popover-last-update">
@@ -202,6 +242,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
         buttons={[
           { text: 'Annulla', role: 'cancel' },
           { text: 'Aggiorna', handler: handleUpdateBlackMarket },
+        ]}
+      />
+
+      <IonAlert
+        isOpen={confirmAction === 'crafting'}
+        onDidDismiss={() => setConfirmAction(null)}
+        header="Ricalcola Crafting"
+        message="Vuoi forzare il ricalcolo dei profitti di crafting?"
+        buttons={[
+          { text: 'Annulla', role: 'cancel' },
+          { text: 'Ricalcola', handler: handleUpdateCrafting },
         ]}
       />
     </>

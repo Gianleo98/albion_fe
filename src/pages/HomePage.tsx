@@ -183,6 +183,7 @@ const HomePage: React.FC = () => {
                               alt={item.itemId}
                               className="material-icon"
                               loading="lazy"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                           )}
                           <div className="card-prices">

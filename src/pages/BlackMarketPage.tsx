@@ -211,6 +211,14 @@ const BlackMarketPage: React.FC = () => {
                           alt={cleanItemName(item.itemId)}
                           className={`bm-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
                           loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const fallback = document.createElement('span');
+                            fallback.className = 'bm-no-icon';
+                            fallback.textContent = 'no icon';
+                            target.parentElement?.appendChild(fallback);
+                          }}
                         />
                       </button>
                     ) : (
