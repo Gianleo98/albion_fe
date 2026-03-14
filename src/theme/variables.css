@@ -1,0 +1,82 @@
+/* Albion Theme */
+
+:root {
+  /* Primary: Steel blue */
+  --ion-color-primary: #4a90d9;
+  --ion-color-primary-rgb: 74, 144, 217;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #417fbf;
+  --ion-color-primary-tint: #5c9bdd;
+
+  /* Secondary: Dark navy */
+  --ion-color-secondary: #1a1a2e;
+  --ion-color-secondary-rgb: 26, 26, 46;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #171728;
+  --ion-color-secondary-tint: #313143;
+
+  /* Tertiary: Gold accent */
+  --ion-color-tertiary: #c9a84c;
+  --ion-color-tertiary-rgb: 201, 168, 76;
+  --ion-color-tertiary-contrast: #1a1a2e;
+  --ion-color-tertiary-contrast-rgb: 26, 26, 46;
+  --ion-color-tertiary-shade: #b19443;
+  --ion-color-tertiary-tint: #ceb15e;
+
+  /* Success */
+  --ion-color-success: #2dd36f;
+  --ion-color-success-rgb: 45, 211, 111;
+  --ion-color-success-contrast: #000000;
+  --ion-color-success-contrast-rgb: 0, 0, 0;
+  --ion-color-success-shade: #28ba62;
+  --ion-color-success-tint: #42d77d;
+
+  /* Danger */
+  --ion-color-danger: #eb445a;
+  --ion-color-danger-rgb: 235, 68, 90;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #cf3c4f;
+  --ion-color-danger-tint: #ed576b;
+
+  --ion-color-warning: #ffc409;
+  --ion-color-warning-rgb: 255, 196, 9;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast-rgb: 0, 0, 0;
+  --ion-color-warning-shade: #e0ac08;
+  --ion-color-warning-tint: #ffca22;
+
+  --ion-color-medium: #92949c;
+  --ion-color-medium-rgb: 146, 148, 156;
+  --ion-color-medium-contrast: #000000;
+  --ion-color-medium-contrast-rgb: 0, 0, 0;
+  --ion-color-medium-shade: #808289;
+  --ion-color-medium-tint: #9d9fa6;
+
+  --ion-color-light: #f4f5f8;
+  --ion-color-light-rgb: 244, 245, 248;
+  --ion-color-light-contrast: #000000;
+  --ion-color-light-contrast-rgb: 0, 0, 0;
+  --ion-color-light-shade: #d7d8da;
+  --ion-color-light-tint: #f5f6f9;
+
+  --ion-font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ion-background-color: #0f0f1a;
+    --ion-background-color-rgb: 15, 15, 26;
+
+    --ion-text-color: #e8e8ed;
+    --ion-text-color-rgb: 232, 232, 237;
+
+    --ion-card-background: #1a1a2e;
+    --ion-item-background: #1a1a2e;
+    --ion-toolbar-background: #16162b;
+    --ion-tab-bar-background: #16162b;
+  }
+}
