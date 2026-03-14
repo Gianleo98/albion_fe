@@ -20,6 +20,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copia la configurazione Nginx custom per SPA routing
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 5173
+EXPOSE 5174
 
 CMD ["nginx", "-g", "daemon off;"]
