@@ -14,7 +14,7 @@ import type { MaterialPriceResponse } from '../types';
 import AppHeader from '../components/AppHeader';
 import './HomePage.css';
 
-const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT'];
+const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT', 'HEART', 'CREST'];
 
 const MATERIAL_LABELS: Record<string, string> = {
   CLOTH: 'Cloth',
@@ -22,6 +22,8 @@ const MATERIAL_LABELS: Record<string, string> = {
   PLANKS: 'Planks',
   METALBAR: 'Metal Bar',
   ARTEFACT: 'Artefact',
+  HEART: 'Heart',
+  CREST: 'Crest',
 };
 
 const formatPrice = (price: number) =>

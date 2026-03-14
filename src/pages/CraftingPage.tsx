@@ -228,6 +228,24 @@ const CraftingPage: React.FC = () => {
                             <span className="cp-res-price">{formatPrice(item.artifactPrice)}</span>
                           </>
                         )}
+                        {item.heartId && (
+                          <>
+                            <span className="cp-res-sep">+</span>
+                            {item.heartIconUrl && (
+                              <img src={item.heartIconUrl} alt="" className="cp-res-icon" />
+                            )}
+                            <span className="cp-res-price">{formatPrice(item.heartPrice)}</span>
+                          </>
+                        )}
+                        {item.crestId && (
+                          <>
+                            <span className="cp-res-sep">+</span>
+                            {item.crestIconUrl && (
+                              <img src={item.crestIconUrl} alt="" className="cp-res-icon" />
+                            )}
+                            <span className="cp-res-price">{formatPrice(item.crestPrice)}</span>
+                          </>
+                        )}
                       </div>
                       <div className="cp-meta">
                         <span className="cp-rrr">RRR {item.returnRate}%</span>
@@ -240,7 +258,7 @@ const CraftingPage: React.FC = () => {
                         {item.profit >= 0 ? '+' : ''}{formatPrice(item.profit)}
                       </span>
                       <span className="cp-bm-price">BM: {formatPrice(item.bmSellPrice)}</span>
-                      <span className="cp-cost">Costo: {formatPrice(item.effectiveCost)}</span>
+                      <span className="cp-cost">Costo: {formatPrice(item.effectiveCost > 0 ? item.effectiveCost : item.totalMaterialCost)}</span>
                     </div>
                   </IonItem>
                 ))}

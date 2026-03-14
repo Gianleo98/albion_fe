@@ -36,8 +36,6 @@ export interface MaterialPriceResponse {
   enchantment: number;
   sellPriceMin: number;
   sellPriceMinDate: string | null;
-  buyPriceMax: number;
-  buyPriceMaxDate: string | null;
   avgPrice7d: number;
   iconUrl: string | null;
   location: string;
@@ -86,6 +84,12 @@ export interface CraftingProfitResponse {
   artifactId: string | null;
   artifactPrice: number;
   artifactIconUrl: string | null;
+  heartId: string | null;
+  heartPrice: number;
+  heartIconUrl: string | null;
+  crestId: string | null;
+  crestPrice: number;
+  crestIconUrl: string | null;
   totalMaterialCost: number;
   effectiveCost: number;
   bmSellPrice: number;
@@ -94,6 +98,25 @@ export interface CraftingProfitResponse {
   returnRate: number;
   hasCityBonus: boolean;
   updatedAt: string;
+}
+
+// --- Crafting Bonus ---
+
+export interface CraftingBonusEntry {
+  category: string;
+  bonusPercentage: number;
+}
+
+export interface CraftingBonusResponse {
+  fixedBonuses: CraftingBonusEntry[];
+  dailyBonuses: CraftingBonusEntry[];
+}
+
+// --- Crafting Settings (tassa vendita: premium 4%, non premium 8%) ---
+
+export interface CraftingSettingsResponse {
+  premium: boolean;
+  marketTaxPercent: number;
 }
 
 // --- Rate Limit ---

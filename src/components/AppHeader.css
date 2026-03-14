@@ -14,7 +14,7 @@
 }
 
 .settings-popover {
-  --width: 260px;
+  --width: 280px;
 }
 
 .settings-popover ion-list {
@@ -62,4 +62,77 @@
   color: var(--ion-color-medium);
   text-align: center;
   letter-spacing: 0.3px;
+}
+
+.daily-bonus-card {
+  margin: 8px 12px 12px;
+  padding: 10px 12px 12px;
+  background: rgba(var(--ion-color-primary-rgb, 0, 123, 255), 0.06);
+  border-radius: 10px;
+  border: 1px solid rgba(var(--ion-color-primary-rgb, 0, 123, 255), 0.15);
+}
+
+.daily-bonus-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ion-text-color);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.daily-bonus-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--ion-color-success-shade);
+  margin-bottom: 10px;
+  padding: 4px 0;
+}
+
+.daily-bonus-badge ion-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.daily-bonus-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.daily-bonus-field {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 52px;
+}
+
+.daily-bonus-field ion-label {
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 2px;
+}
+
+.daily-bonus-select {
+  max-width: 100%;
+}
+
+.daily-bonus-save-btn {
+  margin-top: 6px;
+  margin-bottom: 0;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  font-weight: 600;
+}
+
+.setting-hint {
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+  margin: 2px 0 0;
+  font-weight: 400;
+}
+
+.premium-spinner {
+  margin: 4px 0 8px;
+  display: block;
 }

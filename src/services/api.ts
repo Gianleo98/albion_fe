@@ -2,7 +2,9 @@ import axios from 'axios';
 import type {
   AppInfo,
   BlackMarketPriceResponse,
+  CraftingBonusResponse,
   CraftingProfitResponse,
+  CraftingSettingsResponse,
   MaterialPriceResponse,
   PageResponse,
   RateLimitStatus,
@@ -105,6 +107,35 @@ export const getCraftingProfits = async (
 
 export const getCraftingProfitSortOptions = async (): Promise<SortOption[]> => {
   const { data } = await api.get<SortOption[]>('/api/enums/crafting-profit-sort-options');
+  return data;
+};
+
+// --- Crafting Bonus ---
+
+export const getCraftingBonuses = async (): Promise<CraftingBonusResponse> => {
+  const { data } = await api.get<CraftingBonusResponse>('/api/crafting-bonus');
+  return data;
+};
+
+export const getCraftingBonusCategories = async (): Promise<string[]> => {
+  const { data } = await api.get<string[]>('/api/crafting-bonus/categories');
+  return data;
+};
+
+export const setDailyBonuses = async (categories: string[]): Promise<CraftingBonusResponse> => {
+  const { data } = await api.put<CraftingBonusResponse>('/api/crafting-bonus/daily', { categories });
+  return data;
+};
+
+// --- Crafting Settings (premium = tassa 4%, altrimenti 8%) ---
+
+export const getCraftingSettings = async (): Promise<CraftingSettingsResponse> => {
+  const { data } = await api.get<CraftingSettingsResponse>('/api/crafting-settings');
+  return data;
+};
+
+export const setCraftingSettings = async (premium: boolean): Promise<CraftingSettingsResponse> => {
+  const { data } = await api.put<CraftingSettingsResponse>('/api/crafting-settings', { premium });
   return data;
 };
 
