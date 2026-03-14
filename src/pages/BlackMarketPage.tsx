@@ -53,6 +53,7 @@ const BlackMarketPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [totalElements, setTotalElements] = useState(0);
   const [expandedIcon, setExpandedIcon] = useState<string | null>(null);
+  const [failedIcons, setFailedIcons] = useState<Set<string>>(new Set());
 
   const fetchItems = useCallback(
     async (
@@ -197,33 +198,22 @@ const BlackMarketPage: React.FC = () => {
           {!loading && !error && items.length > 0 && (
             <>
               <IonList className="bm-list">
-                {items.map((item) => (
+                {items.filter((item) => item.iconUrl && !failedIcons.has(item.itemId)).map((item) => (
                   <IonItem key={item.itemId} className="bm-item">
-                    {item.iconUrl ? (
-                      <button
-                        type="button"
-                        className="bm-icon-btn"
-                        slot="start"
-                        onClick={() => setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)}
-                      >
-                        <img
-                          src={item.iconUrl}
-                          alt={cleanItemName(item.itemId)}
-                          className={`bm-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                            const fallback = document.createElement('span');
-                            fallback.className = 'bm-no-icon';
-                            fallback.textContent = 'no icon';
-                            target.parentElement?.appendChild(fallback);
-                          }}
-                        />
-                      </button>
-                    ) : (
-                      <span className="bm-no-icon" slot="start">no icon</span>
-                    )}
+                    <button
+                      type="button"
+                      className="bm-icon-btn"
+                      slot="start"
+                      onClick={() => setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)}
+                    >
+                      <img
+                        src={item.iconUrl ?? undefined}
+                        alt={cleanItemName(item.itemId)}
+                        className={`bm-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                        loading="lazy"
+                        onError={() => setFailedIcons((prev) => new Set(prev).add(item.itemId))}
+                      />
+                    </button>
                     <IonLabel>
                       <h3 className="bm-item-name">{cleanItemName(item.itemId)}</h3>
                     </IonLabel>

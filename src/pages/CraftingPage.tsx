@@ -47,6 +47,8 @@ const CraftingPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalElements, setTotalElements] = useState(0);
+  const [expandedIcon, setExpandedIcon] = useState<string | null>(null);
+  const [failedIcons, setFailedIcons] = useState<Set<string>>(new Set());
 
   const fetchItems = useCallback(
     async (
@@ -181,27 +183,22 @@ const CraftingPage: React.FC = () => {
           {!loading && !error && items.length > 0 && (
             <>
               <IonList className="cp-list">
-                {items.map((item) => (
+                {items.filter((item) => item.iconUrl && !failedIcons.has(item.itemId)).map((item) => (
                   <IonItem key={item.itemId} className="cp-item">
                     <div className="cp-item-left" slot="start">
-                      {item.iconUrl ? (
+                      <button
+                        type="button"
+                        className="cp-icon-btn"
+                        onClick={() => setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)}
+                      >
                         <img
-                          src={item.iconUrl}
+                          src={item.iconUrl ?? undefined}
                           alt={cleanItemName(item.itemId)}
-                          className="cp-item-icon"
+                          className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
                           loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                            const fallback = document.createElement('span');
-                            fallback.className = 'cp-no-icon';
-                            fallback.textContent = 'no icon';
-                            target.parentElement?.appendChild(fallback);
-                          }}
+                          onError={() => setFailedIcons((prev) => new Set(prev).add(item.itemId))}
                         />
-                      ) : (
-                        <span className="cp-no-icon">no icon</span>
-                      )}
+                      </button>
                     </div>
 
                     <IonLabel>
@@ -220,6 +217,15 @@ const CraftingPage: React.FC = () => {
                             )}
                             <span className="cp-res-qty">{item.secondaryResourceQty}x</span>
                             <span className="cp-res-price">{formatPrice(item.secondaryResourcePrice)}</span>
+                          </>
+                        )}
+                        {item.artifactId && (
+                          <>
+                            <span className="cp-res-sep">+</span>
+                            {item.artifactIconUrl && (
+                              <img src={item.artifactIconUrl} alt="" className="cp-res-icon" />
+                            )}
+                            <span className="cp-res-price">{formatPrice(item.artifactPrice)}</span>
                           </>
                         )}
                       </div>

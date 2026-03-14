@@ -83,6 +83,9 @@ export interface CraftingProfitResponse {
   secondaryResourcePrice: number;
   secondaryResourceQty: number;
   secondaryResourceIconUrl: string | null;
+  artifactId: string | null;
+  artifactPrice: number;
+  artifactIconUrl: string | null;
   totalMaterialCost: number;
   effectiveCost: number;
   bmSellPrice: number;

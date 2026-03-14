@@ -14,13 +14,14 @@ import type { MaterialPriceResponse } from '../types';
 import AppHeader from '../components/AppHeader';
 import './HomePage.css';
 
-const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR'];
+const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT'];
 
 const MATERIAL_LABELS: Record<string, string> = {
   CLOTH: 'Cloth',
   LEATHER: 'Leather',
   PLANKS: 'Planks',
   METALBAR: 'Metal Bar',
+  ARTEFACT: 'Artefact',
 };
 
 const formatPrice = (price: number) =>
