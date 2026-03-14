@@ -38,6 +38,7 @@ export interface MaterialPriceResponse {
   sellPriceMinDate: string | null;
   buyPriceMax: number;
   buyPriceMaxDate: string | null;
+  iconUrl: string | null;
   location: string;
   updatedAt: string;
 }

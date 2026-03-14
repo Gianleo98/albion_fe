@@ -1,5 +1,5 @@
 .home-container {
-  padding: 16px;
+  padding: 16px 0;
   max-width: 700px;
   margin: 0 auto;
 }
@@ -48,7 +48,7 @@
 
 /* Actions */
 .actions-section {
-  margin: 16px 0;
+  margin: 16px 16px;
   padding: 0 4px;
 }
 
@@ -81,64 +81,97 @@
   opacity: 0.7;
 }
 
-/* Price list */
-.price-list {
-  margin-top: 8px;
+/* ===== Material Strips ===== */
+.material-strips {
+  margin-top: 16px;
 }
 
-.material-divider {
-  --background: var(--ion-color-primary);
-  --color: #fff;
+.material-strip {
+  margin-bottom: 20px;
+}
+
+.strip-title {
+  font-size: 0.85rem;
   font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
   text-transform: uppercase;
-  --padding-start: 16px;
-  --inner-padding-end: 16px;
+  letter-spacing: 1px;
+  color: var(--ion-color-primary);
+  margin: 0 0 8px 16px;
 }
 
-.price-item {
-  --padding-start: 16px;
-  --inner-padding-end: 16px;
-  --min-height: 44px;
-}
-
-.tier-label {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--ion-text-color);
-}
-
-.price-values {
+.strip-scroll {
   display: flex;
-  gap: 16px;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 16px 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.strip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Material Card */
+.material-card {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  font-size: 0.85rem;
+  width: 88px;
+  padding: 10px 6px 8px;
+  border-radius: 14px;
+  background: var(--ion-card-background, rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(var(--ion-color-primary-rgb, 74, 144, 217), 0.15);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.sell-price {
+.material-card:active {
+  border-color: var(--ion-color-primary);
+  box-shadow: 0 0 12px rgba(var(--ion-color-primary-rgb, 74, 144, 217), 0.2);
+}
+
+.material-icon {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  margin-bottom: 6px;
+}
+
+.card-tier {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ion-text-color);
+  margin-bottom: 4px;
+}
+
+.card-prices {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+}
+
+.card-sell {
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--ion-color-success);
-  font-weight: 600;
   white-space: nowrap;
 }
 
-.sell-price small,
-.buy-price small {
-  font-weight: 400;
-  opacity: 0.7;
-  font-size: 0.75rem;
-}
-
-.buy-price {
+.card-buy {
+  font-size: 0.65rem;
+  font-weight: 500;
   color: var(--ion-color-tertiary);
-  font-weight: 600;
   white-space: nowrap;
+  opacity: 0.8;
 }
 
 /* States */
-.loading-container,
-.error-container,
-.empty-container {
+.state-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -147,13 +180,13 @@
   text-align: center;
 }
 
-.loading-container ion-spinner {
+.state-container ion-spinner {
   width: 40px;
   height: 40px;
   margin-bottom: 12px;
 }
 
-.empty-container p {
+.state-container p {
   margin: 2px 0;
   color: var(--ion-color-medium);
 }

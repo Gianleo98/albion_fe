@@ -12,11 +12,6 @@ import {
   IonButton,
   IonIcon,
   IonAlert,
-  IonItemDivider,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonNote,
   useIonViewWillEnter,
   useIonToast,
 } from '@ionic/react';
@@ -24,6 +19,8 @@ import { refreshOutline } from 'ionicons/icons';
 import { getMaterialPrices, getRateLimitStatus, triggerPriceUpdate } from '../services/api';
 import type { MaterialPriceResponse, RateLimitStatus } from '../types';
 import './HomePage.css';
+
+const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR'];
 
 const MATERIAL_LABELS: Record<string, string> = {
   CLOTH: 'Cloth',
@@ -195,54 +192,60 @@ const HomePage: React.FC = () => {
 
           {/* Loading */}
           {loading && (
-            <div className="loading-container">
+            <div className="state-container">
               <IonSpinner name="crescent" />
             </div>
           )}
 
           {/* Error */}
           {error && !loading && (
-            <div className="error-container">
+            <div className="state-container">
               <p>{error}</p>
             </div>
           )}
 
           {/* Empty */}
           {!loading && !error && prices.length === 0 && (
-            <div className="empty-container">
+            <div className="state-container">
               <p>Nessun dato disponibile.</p>
               <p>Forza un aggiornamento per iniziare.</p>
             </div>
           )}
 
-          {/* Price table */}
+          {/* Material strips */}
           {!loading && !error && prices.length > 0 && (
-            <IonList className="price-list">
-              {Object.entries(grouped).map(([type, items]) => (
-                <div key={type}>
-                  <IonItemDivider className="material-divider">
-                    <IonLabel>{MATERIAL_LABELS[type] ?? type}</IonLabel>
-                  </IonItemDivider>
-                  {items.map((item) => (
-                    <IonItem key={item.itemId} className="price-item">
-                      <IonLabel>
-                        <span className="tier-label">{formatTier(item.tier, item.enchantment)}</span>
-                      </IonLabel>
-                      <IonNote slot="end" className="price-values">
-                        <span className="sell-price">
-                          {formatPrice(item.sellPriceMin)}
-                          <small> sell</small>
-                        </span>
-                        <span className="buy-price">
-                          {formatPrice(item.buyPriceMax)}
-                          <small> buy</small>
-                        </span>
-                      </IonNote>
-                    </IonItem>
-                  ))}
-                </div>
-              ))}
-            </IonList>
+            <div className="material-strips">
+              {MATERIAL_ORDER.map((type) => {
+                const items = grouped[type];
+                if (!items || items.length === 0) return null;
+                return (
+                  <div key={type} className="material-strip">
+                    <h3 className="strip-title">{MATERIAL_LABELS[type] ?? type}</h3>
+                    <div className="strip-scroll">
+                      {items.map((item) => (
+                        <div key={item.itemId} className="material-card">
+                          {item.iconUrl && (
+                            <img
+                              src={item.iconUrl}
+                              alt={item.itemId}
+                              className="material-icon"
+                              loading="lazy"
+                            />
+                          )}
+                          <span className="card-tier">
+                            {formatTier(item.tier, item.enchantment)}
+                          </span>
+                          <div className="card-prices">
+                            <span className="card-sell">{formatPrice(item.sellPriceMin)}</span>
+                            <span className="card-buy">{formatPrice(item.buyPriceMax)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </IonContent>
