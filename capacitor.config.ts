@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.janraion.albion',
-  appName: 'Albion',
+  appName: 'Albus',
   webDir: 'dist',
   plugins: {
     CapacitorHttp: {

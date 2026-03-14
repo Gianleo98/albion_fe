@@ -1,5 +1,11 @@
 import axios from 'axios';
-import type { AppInfo } from '../types';
+import type {
+  AppInfo,
+  BlackMarketPriceResponse,
+  MaterialPriceResponse,
+  RateLimitStatus,
+  SortOption,
+} from '../types';
 
 const PRIMARY_BASE_URL = 'http://janraion.ddns.net:1997';
 const FALLBACK_BASE_URL = 'http://192.168.1.69:1997';
@@ -33,6 +39,51 @@ api.interceptors.response.use(
 
 export const getAppInfo = async (): Promise<AppInfo> => {
   const { data } = await api.get<AppInfo>('/api/info');
+  return data;
+};
+
+// --- Materials ---
+
+export const getMaterialPrices = async (): Promise<MaterialPriceResponse[]> => {
+  const { data } = await api.get<MaterialPriceResponse[]>('/api/materials');
+  return data;
+};
+
+// --- Black Market ---
+
+export const getBlackMarketPrices = async (
+  sortBy: string = 'PRICE',
+  sortDirection: 'ASC' | 'DESC' = 'DESC'
+): Promise<BlackMarketPriceResponse[]> => {
+  const { data } = await api.get<BlackMarketPriceResponse[]>('/api/black-market', {
+    params: { sortBy, sortDirection },
+  });
+  return data;
+};
+
+// --- Enums ---
+
+export const getBlackMarketSortOptions = async (): Promise<SortOption[]> => {
+  const { data } = await api.get<SortOption[]>('/api/enums/black-market-sort-options');
+  return data;
+};
+
+// --- Scheduler ---
+
+export const triggerPriceUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
+  const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-prices');
+  return data;
+};
+
+export const triggerBlackMarketUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
+  const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-black-market');
+  return data;
+};
+
+// --- Rate Limit ---
+
+export const getRateLimitStatus = async (): Promise<RateLimitStatus> => {
+  const { data } = await api.get<RateLimitStatus>('/api/scheduler/rate-limit');
   return data;
 };
 

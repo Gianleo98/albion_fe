@@ -1,0 +1,120 @@
+.bm-container {
+  padding: 16px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Actions */
+.bm-actions {
+  margin-bottom: 12px;
+}
+
+.bm-update-button {
+  --border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Sort controls */
+.bm-sort-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.bm-sort-select-wrapper {
+  flex: 1;
+}
+
+.bm-direction-segment {
+  width: 140px;
+  --background: var(--ion-card-background, #f4f5f8);
+}
+
+/* Count */
+.bm-count {
+  font-size: 0.78rem;
+  color: var(--ion-color-medium);
+  margin: 0 0 8px 4px;
+}
+
+/* List */
+.bm-list {
+  --ion-item-border-color: rgba(146, 148, 156, 0.15);
+}
+
+.bm-item {
+  --padding-start: 8px;
+  --inner-padding-end: 8px;
+  --min-height: 48px;
+}
+
+.bm-item-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 70px;
+}
+
+.bm-tier {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--ion-text-color);
+  min-width: 36px;
+}
+
+.bm-category-badge {
+  font-size: 0.65rem;
+  padding: 2px 5px;
+  --border-radius: 4px;
+}
+
+.bm-item-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bm-prices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.8rem;
+  min-width: 70px;
+}
+
+.bm-sell {
+  color: var(--ion-color-success);
+  font-weight: 600;
+}
+
+.bm-buy {
+  color: var(--ion-color-tertiary);
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+
+/* States */
+.bm-state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.bm-state-container ion-spinner {
+  width: 40px;
+  height: 40px;
+}
+
+.bm-state-container p {
+  margin: 2px 0;
+  color: var(--ion-color-medium);
+}
