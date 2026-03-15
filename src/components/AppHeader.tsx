@@ -18,8 +18,8 @@ import {
   useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
-import { settingsOutline, layersOutline, storefrontOutline, hammerOutline, checkmarkCircleOutline } from 'ionicons/icons';
-import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
+import { settingsOutline, layersOutline, storefrontOutline, hammerOutline, flashOutline, checkmarkCircleOutline } from 'ionicons/icons';
+import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerLymhurstMarketUpdate, triggerFocusProfitUpdate, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
 import type { RateLimitStatus, CraftingBonusResponse, CraftingSettingsResponse } from '../types';
 import './AppHeader.css';
 
@@ -27,6 +27,7 @@ interface AppHeaderProps {
   onMaterialsUpdated?: () => void;
   onBlackMarketUpdated?: () => void;
   onCraftingUpdated?: () => void;
+  onFocusUpdated?: () => void;
   lastUpdate?: string | null;
 }
 
@@ -40,14 +41,16 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarketUpdated, onCraftingUpdated, lastUpdate }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarketUpdated, onCraftingUpdated, onFocusUpdated, lastUpdate }) => {
   const history = useHistory();
   const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [updatingMaterials, setUpdatingMaterials] = useState(false);
   const [updatingBM, setUpdatingBM] = useState(false);
   const [updatingCrafting, setUpdatingCrafting] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | 'crafting' | null>(null);
+  const [updatingLymhurst, setUpdatingLymhurst] = useState(false);
+  const [updatingFocus, setUpdatingFocus] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | 'crafting' | 'lymhurst' | 'focus' | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [craftingBonuses, setCraftingBonuses] = useState<CraftingBonusResponse | null>(null);
   const [bonusCategories, setBonusCategories] = useState<string[]>([]);
@@ -194,7 +197,55 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
     }
   };
 
-  const updating = updatingMaterials || updatingBM || updatingCrafting;
+  const handleUpdateLymhurst = async () => {
+    setConfirmAction(null);
+    setUpdatingLymhurst(true);
+    try {
+      const result = await triggerLymhurstMarketUpdate();
+      presentToast({
+        message: `${result.message} (${result.itemsUpdated} item)`,
+        duration: 2500,
+        color: 'success',
+        position: 'top',
+      });
+      onFocusUpdated?.();
+    } catch {
+      presentToast({
+        message: "Errore durante l'aggiornamento del mercato Lymhurst.",
+        duration: 2500,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setUpdatingLymhurst(false);
+    }
+  };
+
+  const handleUpdateFocus = async () => {
+    setConfirmAction(null);
+    setUpdatingFocus(true);
+    try {
+      const result = await triggerFocusProfitUpdate();
+      presentToast({
+        message: `${result.message} (${result.itemsUpdated} item)`,
+        duration: 2500,
+        color: 'success',
+        position: 'top',
+      });
+      onFocusUpdated?.();
+    } catch {
+      presentToast({
+        message: 'Errore durante il calcolo del focus profit.',
+        duration: 2500,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setUpdatingFocus(false);
+    }
+  };
+
+  const updating = updatingMaterials || updatingBM || updatingCrafting || updatingLymhurst || updatingFocus;
 
   return (
     <>
@@ -265,75 +316,117 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
               : <IonIcon icon={hammerOutline} slot="start" />}
             <IonLabel>Ricalcola Crafting</IonLabel>
           </IonItem>
+          <IonItem
+            button
+            detail={false}
+            disabled={updatingLymhurst}
+            onClick={() => {
+              setPopoverOpen(false);
+              setConfirmAction('lymhurst');
+            }}
+          >
+            {updatingLymhurst
+              ? <IonSpinner name="dots" slot="start" />
+              : <IonIcon icon={storefrontOutline} slot="start" />}
+            <IonLabel>Aggiorna Lymhurst</IonLabel>
+          </IonItem>
+          <IonItem
+            button
+            detail={false}
+            disabled={updatingFocus}
+            onClick={() => {
+              setPopoverOpen(false);
+              setConfirmAction('focus');
+            }}
+          >
+            {updatingFocus
+              ? <IonSpinner name="dots" slot="start" />
+              : <IonIcon icon={flashOutline} slot="start" />}
+            <IonLabel>Ricalcola Focus</IonLabel>
+          </IonItem>
 
-          <div className="daily-bonus-card">
-            <div className="daily-bonus-card-title">Bonus crafting daily</div>
-            {dailyBonusesSet && craftingBonuses?.dailyBonuses && craftingBonuses.dailyBonuses.length > 0 && (
-              <div className="daily-bonus-badge">
-                <IonIcon icon={checkmarkCircleOutline} color="success" />
-                <span>Impostati: {craftingBonuses.dailyBonuses.map((b) => b.category).join(', ')}</span>
-              </div>
-            )}
-            <div className="daily-bonus-fields">
-              <IonItem lines="none" className="daily-bonus-field">
-                <IonLabel position="stacked">Primo bonus</IonLabel>
+          <div className="settings-section settings-section-bonus">
+            <div className="settings-section-header">
+              <span className="settings-section-label">Bonus crafting daily</span>
+              {dailyBonusesSet && craftingBonuses?.dailyBonuses && craftingBonuses.dailyBonuses.length > 0 && (
+                <span className="settings-section-badge">
+                  <IonIcon icon={checkmarkCircleOutline} />
+                  {craftingBonuses.dailyBonuses.map((b) => b.category).join(', ')}
+                </span>
+              )}
+            </div>
+            <div className="settings-select-row">
+              <div className="settings-select-group">
+                <label className="settings-select-label" htmlFor="settings-bonus-1">
+                  Primo bonus
+                </label>
                 <IonSelect
+                  id="settings-bonus-1"
                   value={dailyBonus1}
                   onIonChange={(e) => setDailyBonus1(e.detail.value ?? '')}
                   placeholder="Scegli categoria"
                   interface="popover"
-                  className="daily-bonus-select"
+                  className="settings-select"
                 >
                   {bonusCategories.map((c) => (
                     <IonSelectOption key={c} value={c}>{c}</IonSelectOption>
                   ))}
                 </IonSelect>
-              </IonItem>
-              <IonItem lines="none" className="daily-bonus-field">
-                <IonLabel position="stacked">Secondo (opzionale)</IonLabel>
+              </div>
+              <div className="settings-select-group">
+                <label className="settings-select-label" htmlFor="settings-bonus-2">
+                  Secondo (opzionale)
+                </label>
                 <IonSelect
+                  id="settings-bonus-2"
                   value={dailyBonus2}
                   onIonChange={(e) => setDailyBonus2(e.detail.value ?? '')}
                   placeholder="Nessuno"
                   interface="popover"
-                  className="daily-bonus-select"
+                  className="settings-select"
                 >
                   <IonSelectOption value="">Nessuno</IonSelectOption>
                   {bonusCategories.map((c) => (
                     <IonSelectOption key={c} value={c}>{c}</IonSelectOption>
                   ))}
                 </IonSelect>
-              </IonItem>
-              <IonButton
-                expand="block"
-                fill="solid"
-                size="small"
-                className="daily-bonus-save-btn"
-                disabled={savingDailyBonus || !dailyBonus1 || (!!dailyBonus2 && dailyBonus1 === dailyBonus2)}
-                onClick={handleSaveDailyBonuses}
-              >
-                {savingDailyBonus ? <IonSpinner name="dots" /> : 'Salva'}
-              </IonButton>
+              </div>
             </div>
+            <IonButton
+              expand="block"
+              fill="solid"
+              size="small"
+              className="settings-save-btn"
+              disabled={savingDailyBonus || !dailyBonus1 || (!!dailyBonus2 && dailyBonus1 === dailyBonus2)}
+              onClick={handleSaveDailyBonuses}
+            >
+              {savingDailyBonus ? <IonSpinner name="dots" /> : 'Salva bonus'}
+            </IonButton>
           </div>
 
-          <div className="daily-bonus-card">
-            <div className="daily-bonus-card-title">Tassa vendita (mercato)</div>
-            <IonItem lines="none" className="daily-bonus-field">
-              <IonLabel>
-                <span>Account Premium</span>
-                <p className="setting-hint">
+          <div className="settings-section settings-section-premium">
+            <div className="settings-section-header">
+              <span className="settings-section-label">Tassa vendita</span>
+            </div>
+            <div className="settings-toggle-row">
+              <div className="settings-toggle-content">
+                <span className="settings-toggle-title">Account Premium</span>
+                <span className="settings-toggle-subtitle">
                   {craftingSettings?.premium ? 'Tassa 4%' : 'Tassa 8%'}
-                </p>
-              </IonLabel>
-              <IonToggle
-                slot="end"
-                checked={craftingSettings?.premium ?? true}
-                disabled={savingPremium}
-                onIonChange={(e) => handlePremiumChange(e.detail.checked)}
-              />
-            </IonItem>
-            {savingPremium && <IonSpinner name="dots" className="premium-spinner" />}
+                </span>
+              </div>
+              <div className="settings-toggle-control">
+                {savingPremium ? (
+                  <IonSpinner name="dots" className="settings-toggle-spinner" />
+                ) : (
+                  <IonToggle
+                    checked={craftingSettings?.premium ?? true}
+                    disabled={savingPremium}
+                    onIonChange={(e) => handlePremiumChange(e.detail.checked)}
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="popover-footer">
@@ -389,6 +482,28 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
         buttons={[
           { text: 'Annulla', role: 'cancel' },
           { text: 'Ricalcola', handler: handleUpdateCrafting },
+        ]}
+      />
+
+      <IonAlert
+        isOpen={confirmAction === 'lymhurst'}
+        onDidDismiss={() => setConfirmAction(null)}
+        header="Aggiorna Lymhurst"
+        message="Vuoi aggiornare i prezzi del mercato di Lymhurst? (usa chiamate API)"
+        buttons={[
+          { text: 'Annulla', role: 'cancel' },
+          { text: 'Aggiorna', handler: handleUpdateLymhurst },
+        ]}
+      />
+
+      <IonAlert
+        isOpen={confirmAction === 'focus'}
+        onDidDismiss={() => setConfirmAction(null)}
+        header="Ricalcola Focus"
+        message="Vuoi ricalcolare i profitti con focus (RRR +28.3%)?"
+        buttons={[
+          { text: 'Annulla', role: 'cancel' },
+          { text: 'Ricalcola', handler: handleUpdateFocus },
         ]}
       />
     </>

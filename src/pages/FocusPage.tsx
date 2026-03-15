@@ -17,11 +17,8 @@ import {
   useIonViewWillEnter,
 } from '@ionic/react';
 import { arrowDownOutline, arrowUpOutline } from 'ionicons/icons';
-import {
-  getCraftingProfits,
-  getCraftingProfitSortOptions,
-} from '../services/api';
-import type { CraftingProfitResponse, SortOption } from '../types';
+import { getFocusProfits, getFocusProfitSortOptions } from '../services/api';
+import type { FocusProfitResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
 import './CraftingPage.css';
 
@@ -33,14 +30,16 @@ const cleanItemName = (itemId: string): string => {
   if (name.length > 3 && /^T\d_/.test(name)) name = name.substring(3);
   const levelIdx = name.indexOf('_LEVEL');
   if (levelIdx >= 0) name = name.substring(0, levelIdx);
+  const atEnchant = name.indexOf('@');
+  if (atEnchant >= 0) name = name.substring(0, atEnchant);
   name = name.replace(/^2H_/, '').replace(/^MAIN_/, '').replace(/^OFF_/, '');
   return name.replaceAll('_', ' ').replaceAll(/\b\w/g, (c) => c.toUpperCase());
 };
 
-const CraftingPage: React.FC = () => {
-  const [items, setItems] = useState<CraftingProfitResponse[]>([]);
+const FocusPage: React.FC = () => {
+  const [items, setItems] = useState<FocusProfitResponse[]>([]);
   const [sortOptions, setSortOptions] = useState<SortOption[]>([]);
-  const [sortBy, setSortBy] = useState('PROFIT');
+  const [sortBy, setSortBy] = useState('PROFIT_SELL');
   const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -60,7 +59,7 @@ const CraftingPage: React.FC = () => {
       const sort = sortByOverride ?? sortBy;
       const direction = sortDirectionOverride ?? sortDirection;
       try {
-        const data = await getCraftingProfits(pageNum, 20, sort, direction);
+        const data = await getFocusProfits(pageNum, 20, sort, direction);
         if (reset) {
           setItems(data.content);
         } else {
@@ -72,7 +71,7 @@ const CraftingPage: React.FC = () => {
       } catch {
         setItems((prev) => (reset ? [] : prev));
         setHasMore(false);
-        if (reset) setError('Impossibile caricare i dati del crafting.');
+        if (reset) setError('Impossibile caricare i dati Focus.');
       } finally {
         setLoading(false);
       }
@@ -84,7 +83,7 @@ const CraftingPage: React.FC = () => {
     try {
       setError(null);
       setLoading(true);
-      const optionsData = await getCraftingProfitSortOptions();
+      const optionsData = await getFocusProfitSortOptions();
       setSortOptions(optionsData);
     } catch { /* ignore */ }
     await fetchItems(0, true);
@@ -121,14 +120,13 @@ const CraftingPage: React.FC = () => {
 
   return (
     <IonPage>
-      <AppHeader onCraftingUpdated={() => { setLoading(true); fetchItems(0, true); }} />
+      <AppHeader onFocusUpdated={() => { setLoading(true); fetchItems(0, true); }} />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
         </IonRefresher>
 
         <div className="cp-container">
-          {/* Sort toolbar */}
           <div className="cp-toolbar">
             {sortOptions.length > 0 && (
               <IonItem className="cp-sort-selector" lines="none">
@@ -158,7 +156,7 @@ const CraftingPage: React.FC = () => {
           </div>
 
           {!loading && totalElements > 0 && (
-            <p className="cp-count">{totalElements} item totali</p>
+            <p className="cp-count">{totalElements} item totali (Lymhurst + focus)</p>
           )}
 
           {loading && (
@@ -175,8 +173,8 @@ const CraftingPage: React.FC = () => {
 
           {!loading && !error && items.length === 0 && (
             <div className="cp-state-container">
-              <p>Nessun item profittevole trovato.</p>
-              <p>I materiali devono essere sotto la media 7g.</p>
+              <p>Nessun dato Focus.</p>
+              <p>Aggiorna il mercato Lymhurst e ricalcola Focus dalle impostazioni.</p>
             </div>
           )}
 
@@ -202,7 +200,7 @@ const CraftingPage: React.FC = () => {
                     </div>
 
                     <IonLabel>
-                      <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
+                          <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
                       <div className="cp-resources">
                         {item.primaryResourceIconUrl && (
                           <img src={item.primaryResourceIconUrl} alt="" className="cp-res-icon" />
@@ -248,18 +246,22 @@ const CraftingPage: React.FC = () => {
                         )}
                       </div>
                       <div className="cp-meta">
-                        <span className="cp-rrr">RRR {item.returnRate}%</span>
+                        <span className="cp-rrr">RRR {item.returnRateWithFocus}% (con focus)</span>
                         {item.hasCityBonus && <span className="cp-bonus-badge">Bonus</span>}
                         {item.hasDailyBonus && <span className="cp-daily-badge">Bonus daily</span>}
                       </div>
                     </IonLabel>
 
                     <div slot="end" className="cp-profit-col">
-                      <span className={`cp-profit ${item.profit >= 0 ? 'positive' : 'negative'}`}>
-                        {item.profit >= 0 ? '+' : ''}{formatPrice(item.profit)}
+                      <span className={`cp-profit ${item.profitSell >= 0 ? 'positive' : 'negative'}`}>
+                        Vendita: {item.profitSell >= 0 ? '+' : ''}{formatPrice(item.profitSell)}
                       </span>
-                      <span className="cp-bm-price">BM: {formatPrice(item.bmSellPrice)}</span>
-                      <span className="cp-cost">Costo: {formatPrice(item.effectiveCost > 0 ? item.effectiveCost : item.totalMaterialCost)}</span>
+                      <span className={`cp-profit ${item.profitBuyOrder >= 0 ? 'positive' : 'negative'}`}>
+                        Buy order: {item.profitBuyOrder >= 0 ? '+' : ''}{formatPrice(item.profitBuyOrder)}
+                      </span>
+                      <span className="cp-bm-price">Lymhurst sell: {formatPrice(item.lymhurstSellPriceMin)}</span>
+                      <span className="cp-bm-price">Lymhurst buy: {formatPrice(item.lymhurstBuyPriceMax)}</span>
+                      <span className="cp-cost">Costo: {formatPrice(item.effectiveCostWithFocus > 0 ? item.effectiveCostWithFocus : item.totalMaterialCost)}</span>
                     </div>
                   </IonItem>
                 ))}
@@ -275,4 +277,4 @@ const CraftingPage: React.FC = () => {
   );
 };
 
-export default CraftingPage;
+export default FocusPage;

@@ -5,6 +5,7 @@ import type {
   CraftingBonusResponse,
   CraftingProfitResponse,
   CraftingSettingsResponse,
+  FocusProfitResponse,
   MaterialPriceResponse,
   PageResponse,
   RateLimitStatus,
@@ -91,6 +92,16 @@ export const triggerCraftingProfitUpdate = async (): Promise<{ message: string; 
   return data;
 };
 
+export const triggerLymhurstMarketUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
+  const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-lymhurst-market');
+  return data;
+};
+
+export const triggerFocusProfitUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
+  const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-focus-profit');
+  return data;
+};
+
 // --- Crafting Profit ---
 
 export const getCraftingProfits = async (
@@ -107,6 +118,25 @@ export const getCraftingProfits = async (
 
 export const getCraftingProfitSortOptions = async (): Promise<SortOption[]> => {
   const { data } = await api.get<SortOption[]>('/api/enums/crafting-profit-sort-options');
+  return data;
+};
+
+// --- Focus Profit ---
+
+export const getFocusProfits = async (
+  page: number = 0,
+  size: number = 20,
+  sortBy: string = 'PROFIT_SELL',
+  sortDirection: 'ASC' | 'DESC' = 'DESC'
+): Promise<PageResponse<FocusProfitResponse>> => {
+  const { data } = await api.get<PageResponse<FocusProfitResponse>>('/api/focus-profit', {
+    params: { page, size, sortBy, sortDirection },
+  });
+  return data;
+};
+
+export const getFocusProfitSortOptions = async (): Promise<SortOption[]> => {
+  const { data } = await api.get<SortOption[]>('/api/enums/focus-profit-sort-options');
   return data;
 };
 

@@ -105,6 +105,12 @@
   text-overflow: ellipsis;
 }
 
+.cp-enchant {
+  font-weight: 500;
+  color: var(--ion-color-medium);
+  margin-left: 2px;
+}
+
 /* Resources row */
 .cp-resources {
   display: flex;
@@ -159,6 +165,17 @@
   border-radius: 4px;
   background: rgba(var(--ion-color-success-rgb), 0.15);
   color: var(--ion-color-success);
+}
+
+.cp-daily-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(var(--ion-color-primary-rgb), 0.15);
+  color: var(--ion-color-primary);
 }
 
 /* Profit column */

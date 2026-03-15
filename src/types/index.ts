@@ -97,6 +97,45 @@ export interface CraftingProfitResponse {
   profitPercentage: number;
   returnRate: number;
   hasCityBonus: boolean;
+  hasDailyBonus: boolean;
+  updatedAt: string;
+}
+
+// --- Focus Profit (crafting con focus, mercato Lymhurst) ---
+
+export interface FocusProfitResponse {
+  itemId: string;
+  tier: number;
+  /** 0 = .0, 1 = .1, 2 = .2, 3 = .3 */
+  enchantment: number;
+  iconUrl: string | null;
+  bonusCategory: string | null;
+  primaryResourceId: string;
+  primaryResourcePrice: number;
+  primaryResourceQty: number;
+  primaryResourceIconUrl: string | null;
+  secondaryResourceId: string | null;
+  secondaryResourcePrice: number;
+  secondaryResourceQty: number;
+  secondaryResourceIconUrl: string | null;
+  artifactId: string | null;
+  artifactPrice: number;
+  artifactIconUrl: string | null;
+  heartId: string | null;
+  heartPrice: number;
+  heartIconUrl: string | null;
+  crestId: string | null;
+  crestPrice: number;
+  crestIconUrl: string | null;
+  totalMaterialCost: number;
+  effectiveCostWithFocus: number;
+  lymhurstSellPriceMin: number;
+  lymhurstBuyPriceMax: number;
+  profitSell: number;
+  profitBuyOrder: number;
+  returnRateWithFocus: number;
+  hasCityBonus: boolean;
+  hasDailyBonus: boolean;
   updatedAt: string;
 }
 
