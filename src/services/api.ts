@@ -1,7 +1,6 @@
 import axios from 'axios';
 import type {
   AppInfo,
-  BlackMarketPriceResponse,
   CraftingBonusResponse,
   CraftingProfitResponse,
   CraftingSettingsResponse,
@@ -9,6 +8,9 @@ import type {
   MaterialPriceResponse,
   PageResponse,
   RateLimitStatus,
+  RoyalMarketsResponse,
+  SavedCraftingItemResponse,
+  SavedFocusItemResponse,
   SortOption,
 } from '../types';
 
@@ -54,27 +56,6 @@ export const getMaterialPrices = async (): Promise<MaterialPriceResponse[]> => {
   return data;
 };
 
-// --- Black Market ---
-
-export const getBlackMarketPrices = async (
-  page: number = 0,
-  size: number = 20,
-  sortBy: string = 'PRICE',
-  sortDirection: 'ASC' | 'DESC' = 'DESC'
-): Promise<PageResponse<BlackMarketPriceResponse>> => {
-  const { data } = await api.get<PageResponse<BlackMarketPriceResponse>>('/api/black-market', {
-    params: { page, size, sortBy, sortDirection },
-  });
-  return data;
-};
-
-// --- Enums ---
-
-export const getBlackMarketSortOptions = async (): Promise<SortOption[]> => {
-  const { data } = await api.get<SortOption[]>('/api/enums/black-market-sort-options');
-  return data;
-};
-
 // --- Scheduler ---
 
 export const triggerPriceUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
@@ -108,11 +89,14 @@ export const getCraftingProfits = async (
   page: number = 0,
   size: number = 20,
   sortBy: string = 'PROFIT',
-  sortDirection: 'ASC' | 'DESC' = 'DESC'
+  sortDirection: 'ASC' | 'DESC' = 'DESC',
+  nameSearch?: string,
+  materialsUnderAvg?: boolean
 ): Promise<PageResponse<CraftingProfitResponse>> => {
-  const { data } = await api.get<PageResponse<CraftingProfitResponse>>('/api/crafting-profit', {
-    params: { page, size, sortBy, sortDirection },
-  });
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
+  if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
+  if (materialsUnderAvg === true) params.materialsUnderAvg = true;
+  const { data } = await api.get<PageResponse<CraftingProfitResponse>>('/api/crafting-profit', { params });
   return data;
 };
 
@@ -121,23 +105,91 @@ export const getCraftingProfitSortOptions = async (): Promise<SortOption[]> => {
   return data;
 };
 
+// --- Saved Crafting Items ---
+
+export const getSavedCraftingItemIds = async (): Promise<string[]> => {
+  const { data } = await api.get<string[]>('/api/saved-crafting-items/ids');
+  return data;
+};
+
+export const saveCraftingItem = async (itemId: string): Promise<void> => {
+  await api.post('/api/saved-crafting-items', { itemId });
+};
+
+export const deleteSavedCraftingItem = async (itemId: string): Promise<void> => {
+  await api.delete(`/api/saved-crafting-items/${encodeURIComponent(itemId)}`);
+};
+
+export const getSavedCraftingItemsWithCurrent = async (): Promise<SavedCraftingItemResponse[]> => {
+  const { data } = await api.get<SavedCraftingItemResponse[]>('/api/saved-crafting-items');
+  return data;
+};
+
+export const getSavedCraftingItemDetail = async (itemId: string): Promise<SavedCraftingItemResponse | null> => {
+  try {
+    const { data } = await api.get<SavedCraftingItemResponse>(`/api/saved-crafting-items/${encodeURIComponent(itemId)}`);
+    return data;
+  } catch {
+    return null;
+  }
+};
+
 // --- Focus Profit ---
 
 export const getFocusProfits = async (
   page: number = 0,
   size: number = 20,
   sortBy: string = 'PROFIT_SELL',
-  sortDirection: 'ASC' | 'DESC' = 'DESC'
+  sortDirection: 'ASC' | 'DESC' = 'DESC',
+  nameSearch?: string,
+  materialsUnderAvg?: boolean
 ): Promise<PageResponse<FocusProfitResponse>> => {
-  const { data } = await api.get<PageResponse<FocusProfitResponse>>('/api/focus-profit', {
-    params: { page, size, sortBy, sortDirection },
-  });
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
+  if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
+  if (materialsUnderAvg === true) params.materialsUnderAvg = true;
+  const { data } = await api.get<PageResponse<FocusProfitResponse>>('/api/focus-profit', { params });
   return data;
 };
 
 export const getFocusProfitSortOptions = async (): Promise<SortOption[]> => {
   const { data } = await api.get<SortOption[]>('/api/enums/focus-profit-sort-options');
   return data;
+};
+
+export const getFocusRoyalMarkets = async (itemId: string): Promise<RoyalMarketsResponse> => {
+  const { data } = await api.get<RoyalMarketsResponse>('/api/focus-profit/royal-markets', {
+    params: { itemId },
+  });
+  return data;
+};
+
+// --- Saved Focus Items ---
+
+export const getSavedFocusItemIds = async (): Promise<string[]> => {
+  const { data } = await api.get<string[]>('/api/saved-focus-items/ids');
+  return data;
+};
+
+export const saveFocusItem = async (itemId: string): Promise<void> => {
+  await api.post('/api/saved-focus-items', { itemId });
+};
+
+export const deleteSavedFocusItem = async (itemId: string): Promise<void> => {
+  await api.delete(`/api/saved-focus-items/${encodeURIComponent(itemId)}`);
+};
+
+export const getSavedFocusItemsWithCurrent = async (): Promise<SavedFocusItemResponse[]> => {
+  const { data } = await api.get<SavedFocusItemResponse[]>('/api/saved-focus-items');
+  return data;
+};
+
+export const getSavedFocusItemDetail = async (itemId: string): Promise<SavedFocusItemResponse | null> => {
+  try {
+    const { data } = await api.get<SavedFocusItemResponse>(`/api/saved-focus-items/${encodeURIComponent(itemId)}`);
+    return data;
+  } catch {
+    return null;
+  }
 };
 
 // --- Crafting Bonus ---

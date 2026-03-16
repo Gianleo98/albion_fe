@@ -25,7 +25,6 @@ import './AppHeader.css';
 
 interface AppHeaderProps {
   onMaterialsUpdated?: () => void;
-  onBlackMarketUpdated?: () => void;
   onCraftingUpdated?: () => void;
   onFocusUpdated?: () => void;
   lastUpdate?: string | null;
@@ -41,7 +40,7 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarketUpdated, onCraftingUpdated, onFocusUpdated, lastUpdate }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpdated, onFocusUpdated, lastUpdate }) => {
   const history = useHistory();
   const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -160,7 +159,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onBlackMarket
         color: 'success',
         position: 'top',
       });
-      onBlackMarketUpdated?.();
     } catch {
       presentToast({
         message: "Errore durante l'aggiornamento del Black Market.",

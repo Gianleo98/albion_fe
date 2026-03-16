@@ -4,6 +4,68 @@
   margin: 0 auto;
 }
 
+.cp-segment {
+  margin: 8px 8px 12px;
+}
+.cp-segment ion-segment-button ion-icon {
+  font-size: 1.4rem;
+}
+
+/* Search + filter row */
+.cp-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 8px 0;
+  padding: 0 4px;
+  flex-wrap: wrap;
+}
+
+.cp-search-row .cp-search-item {
+  flex: 1;
+  min-width: 140px;
+  --padding-start: 12px;
+  --inner-padding-end: 12px;
+  --min-height: 44px;
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.cp-search-row .cp-search-item ion-input {
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+}
+
+.cp-filter-below-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--ion-color-medium-tint);
+  background: var(--ion-background-color);
+  color: var(--ion-text-color);
+  cursor: pointer;
+}
+
+.cp-filter-below-btn:hover {
+  background: var(--ion-color-light);
+}
+
+.cp-filter-below-btn.active {
+  border-color: var(--ion-color-primary);
+  background: var(--ion-color-primary-tint);
+  color: var(--ion-color-primary-contrast);
+}
+
+.cp-filter-below-btn ion-icon {
+  font-size: 1.4rem;
+}
+
 /* Toolbar */
 .cp-toolbar {
   display: flex;
@@ -134,8 +196,18 @@
 
 .cp-res-price {
   font-size: 0.72rem;
-  color: var(--ion-color-medium);
   margin-right: 2px;
+}
+.cp-res-price--below {
+  color: var(--ion-color-success);
+  font-weight: 600;
+}
+.cp-res-price--equal {
+  color: var(--ion-color-medium);
+}
+.cp-res-price--above {
+  color: #e57373;
+  font-weight: 600;
 }
 
 .cp-res-sep {
@@ -228,4 +300,385 @@
 .cp-state-container p {
   margin: 2px 0;
   color: var(--ion-color-medium);
+}
+
+/* Detail modal (saved item) */
+.cp-detail-modal .cp-detail-content {
+  padding: 8px 0;
+}
+.cp-detail-modal .cp-detail-content h4 {
+  margin: 16px 0 6px;
+  font-size: 0.95rem;
+  color: var(--ion-color-medium);
+}
+.cp-detail-modal .cp-detail-content h4:first-child {
+  margin-top: 0;
+}
+.cp-detail-modal .cp-detail-content p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+}
+.cp-detail-saved-at {
+  margin-top: 16px !important;
+  font-size: 0.8rem !important;
+  color: var(--ion-color-medium) !important;
+}
+.cp-detail-meta {
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 10px;
+}
+.cp-detail-modal .cp-detail-content h5 {
+  margin: 14px 0 6px;
+  font-size: 0.9rem;
+  color: var(--ion-color-primary);
+}
+.cp-royal-list {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}
+.cp-royal-list li {
+  margin: 4px 0;
+}
+
+/* Crafting detail modal (item salvato) — layout moderno */
+.craft-detail-modal {
+  --border-radius: 16px;
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+.craft-detail-modal .craft-detail-header ion-toolbar {
+  --padding-start: 16px;
+  --padding-end: 8px;
+}
+.craft-detail-content {
+  --padding-top: 16px;
+  --padding-bottom: 24px;
+}
+.craft-detail-card {
+  margin: 0;
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.craft-detail-card ion-card-header {
+  padding: 16px 18px 8px;
+}
+.craft-detail-card ion-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ion-text-color);
+}
+.craft-detail-subtitle {
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+  margin: 6px 0 0;
+  font-weight: 400;
+}
+.craft-detail-card ion-card-content {
+  padding: 12px 18px 18px;
+}
+.craft-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+@media (max-width: 380px) {
+  .craft-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.craft-detail-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  padding: 12px 14px;
+  background: var(--ion-color-light);
+  border-radius: 10px;
+}
+.craft-detail-label {
+  width: 100%;
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+.craft-detail-old {
+  font-size: 0.88rem;
+  color: var(--ion-color-medium);
+  text-decoration: line-through;
+}
+.craft-detail-arrow {
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+}
+.craft-detail-new {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ion-text-color);
+}
+.craft-detail-diff {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-left: auto;
+}
+.craft-detail-diff.positive {
+  color: var(--ion-color-success);
+}
+.craft-detail-diff.negative {
+  color: #e57373;
+}
+.craft-detail-saved-at {
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ion-color-light-shade);
+}
+
+/* Confronto nel tempo — layout user-friendly, sfondo scuro (Crafting + Focus) */
+.cp-detail-modal .comparison-card {
+  background: #22222e;
+  border: 1px solid #353545;
+}
+.cp-detail-modal .comparison-card ion-card-header {
+  background: transparent;
+}
+.cp-detail-modal .comparison-card ion-card-title {
+  color: #e4e4ea;
+}
+.cp-detail-modal .comparison-card ion-card-content {
+  background: transparent;
+}
+.cp-detail-modal .comparison-card .comparison-saved-at {
+  font-size: 0.85rem;
+  color: #9ca3b8;
+  margin: 4px 0 0;
+  font-weight: 400;
+}
+.cp-detail-modal .comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cp-detail-modal .comparison-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: #2a2a38;
+  border-radius: 12px;
+  border: 1px solid #3a3a4a;
+}
+.cp-detail-modal .comparison-metric-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #7b9ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.cp-detail-modal .comparison-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.cp-detail-modal .comparison-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #1e1e28;
+  border-radius: 8px;
+  border: 1px solid #32323f;
+}
+.cp-detail-modal .comparison-col-label {
+  font-size: 0.7rem;
+  color: #9ca3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cp-detail-modal .comparison-col-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e4e4ea;
+}
+.cp-detail-modal .comparison-col-value.comparison-value-now {
+  color: #6ba3e8;
+  font-weight: 700;
+}
+.cp-detail-modal .comparison-diff {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  align-self: flex-start;
+}
+.cp-detail-modal .comparison-diff.diff-up {
+  background: rgba(45, 211, 111, 0.22);
+  color: #4ade80;
+}
+.cp-detail-modal .comparison-diff.diff-down {
+  background: rgba(229, 115, 115, 0.25);
+  color: #f87171;
+}
+
+/* Focus detail modal — layout e stile moderno */
+.focus-detail-modal {
+  --border-radius: 16px;
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+.focus-detail-modal .focus-detail-header ion-toolbar {
+  --padding-start: 16px;
+  --padding-end: 8px;
+}
+.focus-detail-content {
+  --padding-top: 16px;
+  --padding-bottom: 24px;
+}
+.focus-detail-card {
+  margin: 0 0 20px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.focus-detail-card ion-card-header {
+  padding: 16px 18px 8px;
+}
+.focus-detail-card ion-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ion-text-color);
+}
+.focus-detail-subtitle {
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+  margin: 6px 0 0;
+  font-weight: 400;
+}
+.focus-detail-card ion-card-content {
+  padding: 12px 18px 18px;
+}
+.focus-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+@media (max-width: 380px) {
+  .focus-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.focus-detail-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  padding: 10px 12px;
+  background: var(--ion-color-light);
+  border-radius: 10px;
+}
+.focus-detail-label {
+  width: 100%;
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+.focus-detail-old {
+  font-size: 0.88rem;
+  color: var(--ion-color-medium);
+  text-decoration: line-through;
+}
+.focus-detail-arrow {
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+}
+.focus-detail-new {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ion-text-color);
+}
+.focus-detail-diff {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-left: auto;
+}
+.focus-detail-diff.positive {
+  color: var(--ion-color-success);
+}
+.focus-detail-diff.negative {
+  color: #e57373;
+}
+.focus-detail-saved-at {
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ion-color-light-shade);
+}
+.focus-detail-load-btn {
+  margin-bottom: 18px;
+  --border-radius: 10px;
+  font-weight: 600;
+}
+.focus-markets-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.focus-market-section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ion-color-primary);
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--ion-color-primary-tint);
+}
+.focus-market-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.focus-market-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--ion-item-background, var(--ion-background-color));
+  border-radius: 10px;
+  border: 1px solid var(--ion-color-light-shade);
+  font-size: 0.9rem;
+}
+.focus-market-rank {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 8px;
+}
+.focus-market-city {
+  font-weight: 600;
+  min-width: 100px;
+  color: var(--ion-text-color);
+}
+.focus-market-prices {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+.focus-market-empty {
+  font-size: 0.9rem;
+  color: var(--ion-color-medium);
+  font-style: italic;
+  margin: 8px 0;
+  padding: 12px;
 }

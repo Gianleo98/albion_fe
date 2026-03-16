@@ -42,22 +42,6 @@ export interface MaterialPriceResponse {
   updatedAt: string;
 }
 
-// --- Black Market ---
-
-export interface BlackMarketPriceResponse {
-  itemId: string;
-  category: string;
-  tier: number;
-  enchantment: number;
-  sellPriceMin: number;
-  sellPriceMinDate: string | null;
-  buyPriceMax: number;
-  buyPriceMaxDate: string | null;
-  iconUrl: string | null;
-  location: string;
-  updatedAt: string;
-}
-
 // --- Enums ---
 
 export interface SortOption {
@@ -69,6 +53,47 @@ export interface SortOption {
 // --- Crafting Profit ---
 
 export interface CraftingProfitResponse {
+  itemId: string;
+  tier: number;
+  iconUrl: string | null;
+  bonusCategory: string | null;
+  primaryResourceId: string;
+  primaryResourcePrice: number;
+  primaryResourceQty: number;
+  primaryResourceIconUrl: string | null;
+  primaryResourcePriceLevel?: 'below' | 'equal' | 'above';
+  secondaryResourceId: string | null;
+  secondaryResourcePrice: number;
+  secondaryResourceQty: number;
+  secondaryResourceIconUrl: string | null;
+  secondaryResourcePriceLevel?: 'below' | 'equal' | 'above';
+  artifactId: string | null;
+  artifactPrice: number;
+  artifactIconUrl: string | null;
+  artifactPriceLevel?: 'below' | 'equal' | 'above';
+  heartId: string | null;
+  heartPrice: number;
+  heartIconUrl: string | null;
+  heartPriceLevel?: 'below' | 'equal' | 'above';
+  crestId: string | null;
+  crestPrice: number;
+  crestIconUrl: string | null;
+  crestPriceLevel?: 'below' | 'equal' | 'above';
+  totalMaterialCost: number;
+  effectiveCost: number;
+  bmSellPrice: number;
+  profit: number;
+  profitPercentage: number;
+  returnRate: number;
+  hasCityBonus: boolean;
+  hasDailyBonus: boolean;
+  materialsUnderAvg?: boolean;
+  updatedAt: string;
+}
+
+// --- Saved Crafting (swipe save + prezzo al salvataggio) ---
+
+export interface SavedCraftingItemResponse {
   itemId: string;
   tier: number;
   iconUrl: string | null;
@@ -94,11 +119,18 @@ export interface CraftingProfitResponse {
   effectiveCost: number;
   bmSellPrice: number;
   profit: number;
-  profitPercentage: number;
   returnRate: number;
   hasCityBonus: boolean;
   hasDailyBonus: boolean;
-  updatedAt: string;
+  savedBmPrice: number;
+  savedEffectiveCost: number;
+  savedProfit: number;
+  savedAt: string;
+  currentBmPrice: number;
+  currentEffectiveCost: number;
+  currentProfit: number;
+  bmPriceDiff: number;
+  profitDiff: number;
 }
 
 // --- Focus Profit (crafting con focus, mercato Lymhurst) ---
@@ -107,6 +139,49 @@ export interface FocusProfitResponse {
   itemId: string;
   tier: number;
   /** 0 = .0, 1 = .1, 2 = .2, 3 = .3 */
+  enchantment: number;
+  iconUrl: string | null;
+  bonusCategory: string | null;
+  primaryResourceId: string;
+  primaryResourcePrice: number;
+  primaryResourceQty: number;
+  primaryResourceIconUrl: string | null;
+  primaryResourcePriceLevel?: 'below' | 'equal' | 'above';
+  secondaryResourceId: string | null;
+  secondaryResourcePrice: number;
+  secondaryResourceQty: number;
+  secondaryResourceIconUrl: string | null;
+  secondaryResourcePriceLevel?: 'below' | 'equal' | 'above';
+  artifactId: string | null;
+  artifactPrice: number;
+  artifactIconUrl: string | null;
+  artifactPriceLevel?: 'below' | 'equal' | 'above';
+  heartId: string | null;
+  heartPrice: number;
+  heartIconUrl: string | null;
+  heartPriceLevel?: 'below' | 'equal' | 'above';
+  crestId: string | null;
+  crestPrice: number;
+  crestIconUrl: string | null;
+  crestPriceLevel?: 'below' | 'equal' | 'above';
+  totalMaterialCost: number;
+  effectiveCostWithFocus: number;
+  lymhurstSellPriceMin: number;
+  lymhurstBuyPriceMax: number;
+  profitSell: number;
+  profitBuyOrder: number;
+  returnRateWithFocus: number;
+  hasCityBonus: boolean;
+  hasDailyBonus: boolean;
+  materialsUnderAvg?: boolean;
+  updatedAt: string;
+}
+
+// --- Saved Focus (swipe save + prezzo al salvataggio) ---
+
+export interface SavedFocusItemResponse {
+  itemId: string;
+  tier: number;
   enchantment: number;
   iconUrl: string | null;
   bonusCategory: string | null;
@@ -136,7 +211,37 @@ export interface FocusProfitResponse {
   returnRateWithFocus: number;
   hasCityBonus: boolean;
   hasDailyBonus: boolean;
-  updatedAt: string;
+  savedLymhurstSell: number;
+  savedLymhurstBuy: number;
+  savedEffectiveCost: number;
+  savedProfitSell: number;
+  savedProfitBuyOrder: number;
+  savedAt: string;
+  currentLymhurstSell: number;
+  currentLymhurstBuy: number;
+  currentEffectiveCost: number;
+  currentProfitSell: number;
+  currentProfitBuyOrder: number;
+  sellPriceDiff: number;
+  buyPriceDiff: number;
+  profitSellDiff: number;
+  profitBuyOrderDiff: number;
+}
+
+// --- Royal Markets (Focus: sell/buy order per città, solo lettura) ---
+
+export interface RoyalMarketEntry {
+  city: string;
+  sellPriceMin: number;
+  sellPriceMax: number;
+  buyPriceMin: number;
+  buyPriceMax: number;
+}
+
+export interface RoyalMarketsResponse {
+  itemId: string;
+  sellOrders: RoyalMarketEntry[];
+  buyOrders: RoyalMarketEntry[];
 }
 
 // --- Crafting Bonus ---
