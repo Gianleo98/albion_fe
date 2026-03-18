@@ -228,6 +228,80 @@
   color: var(--ion-color-medium);
 }
 
+.cp-saved-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--ion-color-tertiary);
+  color: var(--ion-color-tertiary-contrast);
+}
+
+.cp-saved-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.cp-avail-chip {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--ion-color-step-150);
+  color: var(--ion-text-color);
+}
+
+/* Testo scuro su sfondo giallo/ambra — leggibile in tema scuro */
+.cp-avail-chip--warn {
+  background: #ca8a04;
+  color: #0c0a09;
+  font-weight: 600;
+}
+
+.cp-avail-chip--listed {
+  background: var(--ion-color-success-tint);
+  color: var(--ion-color-success-shade);
+}
+
+.detail-missing-banner {
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: rgba(202, 138, 4, 0.22);
+  border: 1px solid rgba(202, 138, 4, 0.45);
+  color: #fde68a;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.detail-hero-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: var(--ion-color-step-100);
+  display: block;
+  margin: 0 auto 12px;
+}
+
+.detail-metric-hint {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.detail-tracking-card ion-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+}
+
 .cp-bonus-badge {
   font-size: 0.6rem;
   font-weight: 700;
@@ -266,6 +340,22 @@
 
 .cp-profit.positive {
   color: var(--ion-color-success);
+}
+
+.cp-yield-pct {
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: block;
+  margin-top: 2px;
+  opacity: 0.92;
+}
+
+.cp-yield-pct.positive {
+  color: #34d399;
+}
+
+.cp-yield-pct.negative {
+  color: #f87171;
 }
 
 .cp-profit.negative {
@@ -507,6 +597,13 @@
 .cp-detail-modal .comparison-col-value.comparison-value-now {
   color: #6ba3e8;
   font-weight: 700;
+}
+.cp-detail-modal .comparison-yield-pct {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.88;
+  margin-top: 4px;
+  color: #a8a8b8;
 }
 .cp-detail-modal .comparison-diff {
   font-size: 0.9rem;

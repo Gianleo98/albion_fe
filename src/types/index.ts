@@ -91,12 +91,29 @@ export interface CraftingProfitResponse {
   updatedAt: string;
 }
 
+export type AvailabilityLevelCode = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface SavedItemTrackingPayload {
+  listedForSale?: boolean;
+  sellAvailability?: AvailabilityLevelCode;
+  stockAvailability?: AvailabilityLevelCode;
+}
+
 // --- Saved Crafting (swipe save + prezzo al salvataggio) ---
 
 export interface SavedCraftingItemResponse {
   itemId: string;
   tier: number;
   iconUrl: string | null;
+  currentDataMissing?: boolean;
+  listedForSale?: boolean;
+  sellAvailability?: string;
+  sellAvailabilityLabel?: string;
+  stockAvailability?: string;
+  stockAvailabilityLabel?: string;
+  sellAvailabilityRank?: number;
+  stockAvailabilityRank?: number;
+  profitSortKey?: number;
   bonusCategory: string | null;
   primaryResourceId: string;
   primaryResourcePrice: number;
@@ -131,6 +148,22 @@ export interface SavedCraftingItemResponse {
   currentProfit: number;
   bmPriceDiff: number;
   profitDiff: number;
+}
+
+// --- Flip Caerleon → Black Market ---
+
+export interface FlipProfitResponse {
+  itemId: string;
+  category: string;
+  tier: number;
+  enchantment: number;
+  caerleonSellPriceMin: number;
+  blackMarketBuyPriceMax: number;
+  revenueAfterTax: number;
+  profit: number;
+  profitPercentage: number;
+  taxPercentApplied: number;
+  iconUrl: string | null;
 }
 
 // --- Focus Profit (crafting con focus, mercato Lymhurst) ---
@@ -170,6 +203,10 @@ export interface FocusProfitResponse {
   lymhurstBuyPriceMax: number;
   profitSell: number;
   profitBuyOrder: number;
+  /** % rendimento su costo con focus (vendita listino) */
+  yieldPercentage?: number;
+  /** % rendimento su costo con focus (buy order) */
+  yieldBuyOrderPercentage?: number;
   returnRateWithFocus: number;
   hasCityBonus: boolean;
   hasDailyBonus: boolean;
@@ -184,6 +221,15 @@ export interface SavedFocusItemResponse {
   tier: number;
   enchantment: number;
   iconUrl: string | null;
+  currentDataMissing?: boolean;
+  listedForSale?: boolean;
+  sellAvailability?: string;
+  sellAvailabilityLabel?: string;
+  stockAvailability?: string;
+  stockAvailabilityLabel?: string;
+  sellAvailabilityRank?: number;
+  stockAvailabilityRank?: number;
+  profitSortKey?: number;
   bonusCategory: string | null;
   primaryResourceId: string;
   primaryResourcePrice: number;
@@ -242,6 +288,12 @@ export interface RoyalMarketsResponse {
   itemId: string;
   sellOrders: RoyalMarketEntry[];
   buyOrders: RoyalMarketEntry[];
+  /** Città sempre confrontate, incluso Brecilien */
+  marketsCompared?: string[];
+  /** #1 in classifica listino vendita (sell max più alto) */
+  bestSellListCity?: string | null;
+  /** #1 in classifica buy order (buy max più alto) */
+  bestBuyOrderCity?: string | null;
 }
 
 // --- Crafting Bonus ---

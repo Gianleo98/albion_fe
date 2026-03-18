@@ -24,6 +24,10 @@ Frontend per **Albus** — tracker dei prezzi di mercato per Albion Online.
 - Vite 5
 - Axios
 
+## Sicurezza API (token)
+
+L’app invia in automatico lo stesso token predefinito del backend (`X-API-Token`). Per usare un altro segreto, imposta `VITE_API_TOKEN` in build e `APP_SECURITY_TOKEN` sul server con lo stesso valore.
+
 ## Sviluppo
 
 ```bash
@@ -32,6 +36,10 @@ npm run dev
 ```
 
 L'app si avvia su `http://localhost:5173` e si connette al backend sulla porta **1997**.
+
+### Prezzi Heart & Crest (Royal cities)
+
+I prezzi mostrati in Crafting/Focus per heart e crest arrivano dal backend, che interroga **europe.albion-online-data.com** con gli item ID ufficiali del gioco. Documentazione tecnica (endpoint, ID, icone): repo backend [`albion_be/docs/ALBION_API_CITY_HEARTS_CRESTS.md`](../albion_be/docs/ALBION_API_CITY_HEARTS_CRESTS.md).
 
 ## Build APK
 

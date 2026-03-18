@@ -18,8 +18,8 @@ import {
   useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
-import { settingsOutline, layersOutline, storefrontOutline, hammerOutline, flashOutline, checkmarkCircleOutline } from 'ionicons/icons';
-import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerLymhurstMarketUpdate, triggerFocusProfitUpdate, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
+import { settingsOutline, layersOutline, storefrontOutline, hammerOutline, flashOutline, checkmarkCircleOutline, globeOutline } from 'ionicons/icons';
+import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerRoyalContinentUpdate, triggerFocusProfitUpdate, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
 import type { RateLimitStatus, CraftingBonusResponse, CraftingSettingsResponse } from '../types';
 import './AppHeader.css';
 
@@ -27,6 +27,7 @@ interface AppHeaderProps {
   onMaterialsUpdated?: () => void;
   onCraftingUpdated?: () => void;
   onFocusUpdated?: () => void;
+  onFlipUpdated?: () => void;
   lastUpdate?: string | null;
 }
 
@@ -40,16 +41,16 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpdated, onFocusUpdated, lastUpdate }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpdated, onFocusUpdated, onFlipUpdated, lastUpdate }) => {
   const history = useHistory();
   const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [updatingMaterials, setUpdatingMaterials] = useState(false);
   const [updatingBM, setUpdatingBM] = useState(false);
   const [updatingCrafting, setUpdatingCrafting] = useState(false);
-  const [updatingLymhurst, setUpdatingLymhurst] = useState(false);
+  const [updatingRoyalContinent, setUpdatingRoyalContinent] = useState(false);
   const [updatingFocus, setUpdatingFocus] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | 'crafting' | 'lymhurst' | 'focus' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | 'crafting' | 'royal' | 'focus' | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [craftingBonuses, setCraftingBonuses] = useState<CraftingBonusResponse | null>(null);
   const [bonusCategories, setBonusCategories] = useState<string[]>([]);
@@ -94,6 +95,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
         position: 'top',
       });
       onCraftingUpdated?.();
+      onFlipUpdated?.();
     } catch {
       presentToast({ message: 'Errore nel salvataggio.', duration: 2500, color: 'danger', position: 'top' });
     } finally {
@@ -195,27 +197,28 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
     }
   };
 
-  const handleUpdateLymhurst = async () => {
+  const handleUpdateRoyalContinent = async () => {
     setConfirmAction(null);
-    setUpdatingLymhurst(true);
+    setUpdatingRoyalContinent(true);
     try {
-      const result = await triggerLymhurstMarketUpdate();
+      const result = await triggerRoyalContinentUpdate();
       presentToast({
-        message: `${result.message} (${result.itemsUpdated} item)`,
-        duration: 2500,
+        message: `${result.message} (~${result.priceRowsWritten} prezzi salvati, Focus ${result.focusItemsUpdated}).`,
+        duration: 5000,
         color: 'success',
         position: 'top',
       });
       onFocusUpdated?.();
+      onFlipUpdated?.();
     } catch {
       presentToast({
-        message: "Errore durante l'aggiornamento del mercato Lymhurst.",
-        duration: 2500,
+        message: 'Errore aggiornamento Royal Continent (timeout o rate limit?). Riprova tra qualche minuto.',
+        duration: 4000,
         color: 'danger',
         position: 'top',
       });
     } finally {
-      setUpdatingLymhurst(false);
+      setUpdatingRoyalContinent(false);
     }
   };
 
@@ -243,7 +246,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
     }
   };
 
-  const updating = updatingMaterials || updatingBM || updatingCrafting || updatingLymhurst || updatingFocus;
+  const updating =
+    updatingMaterials || updatingBM || updatingCrafting || updatingRoyalContinent || updatingFocus;
 
   return (
     <>
@@ -317,16 +321,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
           <IonItem
             button
             detail={false}
-            disabled={updatingLymhurst}
+            disabled={updatingRoyalContinent}
             onClick={() => {
               setPopoverOpen(false);
-              setConfirmAction('lymhurst');
+              setConfirmAction('royal');
             }}
           >
-            {updatingLymhurst
+            {updatingRoyalContinent
               ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={storefrontOutline} slot="start" />}
-            <IonLabel>Aggiorna Lymhurst</IonLabel>
+              : <IonIcon icon={globeOutline} slot="start" />}
+            <IonLabel>Aggiorna Royal Continent</IonLabel>
           </IonItem>
           <IonItem
             button
@@ -342,7 +346,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
               : <IonIcon icon={flashOutline} slot="start" />}
             <IonLabel>Ricalcola Focus</IonLabel>
           </IonItem>
-
           <div className="settings-section settings-section-bonus">
             <div className="settings-section-header">
               <span className="settings-section-label">Bonus crafting daily</span>
@@ -410,7 +413,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
               <div className="settings-toggle-content">
                 <span className="settings-toggle-title">Account Premium</span>
                 <span className="settings-toggle-subtitle">
-                  {craftingSettings?.premium ? 'Tassa 4%' : 'Tassa 8%'}
+                  {craftingSettings?.premium ? 'Tassa 4%' : 'Tassa 8%'} · anche vendita BM (Flip)
                 </span>
               </div>
               <div className="settings-toggle-control">
@@ -484,13 +487,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
       />
 
       <IonAlert
-        isOpen={confirmAction === 'lymhurst'}
+        isOpen={confirmAction === 'royal'}
         onDidDismiss={() => setConfirmAction(null)}
-        header="Aggiorna Lymhurst"
-        message="Vuoi aggiornare i prezzi del mercato di Lymhurst? (usa chiamate API)"
+        header="Aggiorna Royal Continent"
+        message="Scarica i prezzi per Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford, Brecilien e Caerleon (una query API per batch su tutte le città). Poi ricalcola Focus. Può richiedere diversi minuti e molte chiamate API."
         buttons={[
           { text: 'Annulla', role: 'cancel' },
-          { text: 'Aggiorna', handler: handleUpdateLymhurst },
+          { text: 'Avvia', handler: handleUpdateRoyalContinent },
         ]}
       />
 
@@ -504,6 +507,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
           { text: 'Ricalcola', handler: handleUpdateFocus },
         ]}
       />
+
     </>
   );
 };

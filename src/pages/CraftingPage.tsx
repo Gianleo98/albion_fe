@@ -32,6 +32,7 @@ import {
   useIonViewWillEnter,
   useIonToast,
   IonAlert,
+  IonToggle,
 } from '@ionic/react';
 import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel, bookmarkOutline, trashOutline, listOutline } from 'ionicons/icons';
 import {
@@ -42,9 +43,11 @@ import {
   deleteSavedCraftingItem,
   getSavedCraftingItemsWithCurrent,
   getSavedCraftingItemDetail,
+  patchSavedCraftingTracking,
 } from '../services/api';
-import type { CraftingProfitResponse, SavedCraftingItemResponse, SortOption } from '../types';
+import type { AvailabilityLevelCode, CraftingProfitResponse, SavedCraftingItemResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
+import { formatYieldPercent, yieldPercentFromProfitAndCost } from '../utils/yieldPercent';
 import './CraftingPage.css';
 
 const formatPrice = (price: number) =>
@@ -52,6 +55,13 @@ const formatPrice = (price: number) =>
 
 const resPriceClass = (level?: 'below' | 'equal' | 'above') =>
   `cp-res-price cp-res-price--${level ?? 'equal'}`;
+
+const AVAIL_OPTIONS: { value: AvailabilityLevelCode; label: string }[] = [
+  { value: 'NONE', label: 'Non impostato' },
+  { value: 'LOW', label: 'Basso' },
+  { value: 'MEDIUM', label: 'Medio' },
+  { value: 'HIGH', label: 'Alto' },
+];
 
 const cleanItemName = (itemId: string): string => {
   let name = itemId;
@@ -84,6 +94,10 @@ const CraftingPage: React.FC = () => {
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
   const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean } | null>(null);
   const [detailItem, setDetailItem] = useState<SavedCraftingItemResponse | null>(null);
+  const [trListed, setTrListed] = useState(false);
+  const [trSell, setTrSell] = useState<AvailabilityLevelCode>('NONE');
+  const [trStock, setTrStock] = useState<AvailabilityLevelCode>('NONE');
+  const [trackSaving, setTrackSaving] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountRef = useRef(false);
   const slidingRefs = useRef<Record<string, HTMLIonItemSlidingElement | null>>({});
@@ -175,6 +189,14 @@ const CraftingPage: React.FC = () => {
     }
   }, [listMode, fetchSavedList]);
 
+  useEffect(() => {
+    if (detailItem) {
+      setTrListed(!!detailItem.listedForSale);
+      setTrSell((detailItem.sellAvailability as AvailabilityLevelCode) || 'NONE');
+      setTrStock((detailItem.stockAvailability as AvailabilityLevelCode) || 'NONE');
+    }
+  }, [detailItem?.itemId, detailItem?.listedForSale, detailItem?.sellAvailability, detailItem?.stockAvailability]);
+
   const openSaveAlert = (itemId: string, isSaved: boolean) => {
     setSaveAlertItem({ itemId, isSaved });
   };
@@ -211,6 +233,25 @@ const CraftingPage: React.FC = () => {
     if (listMode !== 'saved') return;
     const detail = await getSavedCraftingItemDetail(itemId);
     if (detail) setDetailItem(detail);
+  };
+
+  const saveCraftingTracking = async () => {
+    if (!detailItem) return;
+    setTrackSaving(true);
+    try {
+      const updated = await patchSavedCraftingTracking(detailItem.itemId, {
+        listedForSale: trListed,
+        sellAvailability: trSell,
+        stockAvailability: trStock,
+      });
+      setDetailItem(updated);
+      await fetchSavedList();
+      presentToast({ message: 'Note salvate. Lista riordinata.', duration: 2000, color: 'success', position: 'top' });
+    } catch {
+      presentToast({ message: 'Salvataggio fallito.', duration: 2000, color: 'danger', position: 'top' });
+    } finally {
+      setTrackSaving(false);
+    }
   };
 
   const handleRefresh = async (event: CustomEvent) => {
@@ -417,6 +458,7 @@ const CraftingPage: React.FC = () => {
                           </div>
                           <div className="cp-meta">
                             <span className="cp-rrr">RRR {item.returnRate}%</span>
+                            {isSaved && <span className="cp-saved-badge">Salvato</span>}
                             {item.hasCityBonus && <span className="cp-bonus-badge">Bonus</span>}
                             {item.hasDailyBonus && <span className="cp-daily-badge">Bonus daily</span>}
                           </div>
@@ -425,6 +467,9 @@ const CraftingPage: React.FC = () => {
                         <div slot="end" className="cp-profit-col">
                           <span className={`cp-profit ${item.profit >= 0 ? 'positive' : 'negative'}`}>
                             {item.profit >= 0 ? '+' : ''}{formatPrice(item.profit)}
+                          </span>
+                          <span className={`cp-yield-pct ${item.profit >= 0 ? 'positive' : 'negative'}`}>
+                            {formatYieldPercent(item.profitPercentage)}
                           </span>
                           <span className="cp-bm-price">BM: {formatPrice(item.bmSellPrice)}</span>
                           <span className="cp-cost">Costo: {formatPrice(item.effectiveCost > 0 ? item.effectiveCost : item.totalMaterialCost)}</span>
@@ -458,35 +503,65 @@ const CraftingPage: React.FC = () => {
           )}
 
           {listMode === 'saved' && !loading && savedItems.length > 0 && (
+            <>
+              <p className="cp-count" style={{ marginTop: 4 }}>
+                Ordine: prima &quot;vendita non impostata&quot;, poi profitto. Tocca per dettaglio e note.
+              </p>
             <IonList className="cp-list">
-              {savedItems.map((s) => (
+              {savedItems.map((s) => {
+                const profitShow = s.currentDataMissing ? s.savedProfit : s.currentProfit;
+                const costShow = s.currentDataMissing ? s.savedEffectiveCost : s.currentEffectiveCost;
+                return (
                 <IonItemSliding key={s.itemId} ref={(el) => { slidingRefs.current[s.itemId] = el; }}>
                   <IonItem className="cp-item" button onClick={() => openDetail(s.itemId)}>
                     <div className="cp-item-left" slot="start">
-                      {s.iconUrl && (
+                      {s.iconUrl ? (
                         <img
                           src={s.iconUrl}
-                          alt={cleanItemName(s.itemId)}
+                          alt=""
                           className="cp-item-icon"
                           loading="lazy"
                         />
+                      ) : (
+                        <div className="cp-item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>T{s.tier}</div>
                       )}
                     </div>
                     <IonLabel>
                       <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
+                      <div className="cp-saved-chips">
+                        {(s.sellAvailability === 'NONE' || !s.sellAvailability) && (
+                          <span className="cp-avail-chip cp-avail-chip--warn">Vendita: da impostare</span>
+                        )}
+                        {s.sellAvailability && s.sellAvailability !== 'NONE' && (
+                          <span className="cp-avail-chip">Vendita: {s.sellAvailabilityLabel ?? s.sellAvailability}</span>
+                        )}
+                        <span className="cp-avail-chip">Stock: {s.stockAvailabilityLabel ?? '—'}</span>
+                        {s.listedForSale && <span className="cp-avail-chip cp-avail-chip--listed">In vendita</span>}
+                      </div>
                       <div className="cp-meta">
-                        <span className="cp-rrr">Salvato: BM {formatPrice(s.savedBmPrice)}</span>
-                        <span className="cp-bm-price">Ora: BM {formatPrice(s.currentBmPrice)}</span>
-                        {s.bmPriceDiff !== 0 && (
-                          <span className={s.bmPriceDiff >= 0 ? 'cp-profit positive' : 'cp-profit negative'}>
-                            {s.bmPriceDiff >= 0 ? '+' : ''}{formatPrice(s.bmPriceDiff)}
-                          </span>
+                        {s.currentDataMissing ? (
+                          <span className="cp-rrr">Non in elenco profit — dati al salvataggio</span>
+                        ) : (
+                          <>
+                            <span className="cp-rrr">BM ora {formatPrice(s.currentBmPrice)}</span>
+                            {s.bmPriceDiff !== 0 && (
+                              <span className={s.bmPriceDiff >= 0 ? 'cp-profit positive' : 'cp-profit negative'}>
+                                {s.bmPriceDiff >= 0 ? '+' : ''}{formatPrice(s.bmPriceDiff)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </IonLabel>
                     <div slot="end" className="cp-profit-col">
-                      <span className={`cp-profit ${s.currentProfit >= 0 ? 'positive' : 'negative'}`}>
-                        {s.currentProfit >= 0 ? '+' : ''}{formatPrice(s.currentProfit)}
+                      <span className={`cp-profit ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                        {profitShow >= 0 ? '+' : ''}{formatPrice(profitShow)}
+                      </span>
+                      <span className={`cp-yield-pct ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                        {yieldPercentFromProfitAndCost(profitShow, costShow)}
+                      </span>
+                      <span className="cp-bm-price" style={{ fontSize: '0.75rem' }}>
+                        {s.currentDataMissing ? 'snap' : 'oggi'}
                       </span>
                     </div>
                   </IonItem>
@@ -497,8 +572,9 @@ const CraftingPage: React.FC = () => {
                     </IonItemOption>
                   </IonItemOptions>
                 </IonItemSliding>
-              ))}
+              );})}
             </IonList>
+            </>
           )}
 
           {listMode === 'saved' && !loading && savedItems.length === 0 && (
@@ -536,52 +612,135 @@ const CraftingPage: React.FC = () => {
             </IonHeader>
             <IonContent className="ion-padding craft-detail-content">
               {detailItem && (
-                <IonCard className="craft-detail-card comparison-card">
-                  <IonCardHeader>
-                    <IonCardTitle>Confronto nel tempo</IonCardTitle>
-                    <p className="comparison-saved-at">Salvato il {new Date(detailItem.savedAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                  </IonCardHeader>
-                  <IonCardContent>
-                    <div className="comparison-list">
-                      <div className="comparison-row">
-                        <div className="comparison-metric-name">Prezzo Black Market</div>
-                        <div className="comparison-columns">
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Al salvataggio</span>
-                            <span className="comparison-col-value">{formatPrice(detailItem.savedBmPrice)}</span>
-                          </div>
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Ora</span>
-                            <span className="comparison-col-value comparison-value-now">{formatPrice(detailItem.currentBmPrice)}</span>
-                          </div>
-                        </div>
-                        {detailItem.bmPriceDiff !== 0 && (
-                          <div className={`comparison-diff ${detailItem.bmPriceDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                            {detailItem.bmPriceDiff > 0 ? '+' : ''}{formatPrice(detailItem.bmPriceDiff)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="comparison-row">
-                        <div className="comparison-metric-name">Profitto</div>
-                        <div className="comparison-columns">
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Al salvataggio</span>
-                            <span className="comparison-col-value">{detailItem.savedProfit >= 0 ? '+' : ''}{formatPrice(detailItem.savedProfit)}</span>
-                          </div>
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Ora</span>
-                            <span className="comparison-col-value comparison-value-now">{detailItem.currentProfit >= 0 ? '+' : ''}{formatPrice(detailItem.currentProfit)}</span>
-                          </div>
-                        </div>
-                        {detailItem.profitDiff !== 0 && (
-                          <div className={`comparison-diff ${detailItem.profitDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                            {detailItem.profitDiff > 0 ? '+' : ''}{formatPrice(detailItem.profitDiff)}
-                          </div>
-                        )}
-                      </div>
+                <>
+                  {detailItem.iconUrl && (
+                    <img src={detailItem.iconUrl} alt="" className="detail-hero-icon" />
+                  )}
+                  {detailItem.currentDataMissing && (
+                    <div className="detail-missing-banner">
+                      <strong>Questo item non è più nell&apos;elenco profit attuale</strong> (materiali non convenienti o BM senza prezzo).
+                      Sotto vedi i valori <strong>al momento del salvataggio</strong>. L&apos;icona e il tier restano visibili.
                     </div>
-                  </IonCardContent>
-                </IonCard>
+                  )}
+                  <IonCard className="craft-detail-card comparison-card">
+                    <IonCardHeader>
+                      <IonCardTitle>Prezzi Black Market</IonCardTitle>
+                      <p className="comparison-saved-at">
+                        Snapshot salvato il{' '}
+                        {new Date(detailItem.savedAt).toLocaleString('it-IT', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </IonCardHeader>
+                    <IonCardContent>
+                      <p className="detail-metric-hint">
+                        Il prezzo BM è la buy order sul Black Market (quanto ricevi vendendo lì dopo la tassa impostata).
+                      </p>
+                      <div className="comparison-list">
+                        <div className="comparison-row">
+                          <div className="comparison-metric-name">Buy order BM</div>
+                          <div className="comparison-columns">
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">Al salvataggio</span>
+                              <span className="comparison-col-value">{formatPrice(detailItem.savedBmPrice)}</span>
+                            </div>
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">
+                                {detailItem.currentDataMissing ? 'Ora (lista)' : 'Ora aggiornato'}
+                              </span>
+                              <span className="comparison-col-value comparison-value-now">
+                                {detailItem.currentDataMissing ? '—' : formatPrice(detailItem.currentBmPrice)}
+                              </span>
+                            </div>
+                          </div>
+                          {!detailItem.currentDataMissing && detailItem.bmPriceDiff !== 0 && (
+                            <div className={`comparison-diff ${detailItem.bmPriceDiff > 0 ? 'diff-up' : 'diff-down'}`}>
+                              {detailItem.bmPriceDiff > 0 ? '+' : ''}
+                              {formatPrice(detailItem.bmPriceDiff)} vs salvataggio
+                            </div>
+                          )}
+                        </div>
+                        <div className="comparison-row">
+                          <div className="comparison-metric-name">Profitto crafting → BM</div>
+                          <p className="detail-metric-hint">Dopo costo materiali e bonus RRR.</p>
+                          <div className="comparison-columns">
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">Al salvataggio</span>
+                              <span className="comparison-col-value">
+                                {detailItem.savedProfit >= 0 ? '+' : ''}
+                                {formatPrice(detailItem.savedProfit)}
+                              </span>
+                              <span className="comparison-yield-pct">
+                                Rend. {yieldPercentFromProfitAndCost(detailItem.savedProfit, detailItem.savedEffectiveCost)}
+                              </span>
+                            </div>
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">
+                                {detailItem.currentDataMissing ? 'Ora (lista)' : 'Ora aggiornato'}
+                              </span>
+                              <span className="comparison-col-value comparison-value-now">
+                                {detailItem.currentDataMissing ? '—' : `${detailItem.currentProfit >= 0 ? '+' : ''}${formatPrice(detailItem.currentProfit)}`}
+                              </span>
+                              {!detailItem.currentDataMissing && (
+                                <span className="comparison-yield-pct">
+                                  Rend. {yieldPercentFromProfitAndCost(detailItem.currentProfit, detailItem.currentEffectiveCost)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {!detailItem.currentDataMissing && detailItem.profitDiff !== 0 && (
+                            <div className={`comparison-diff ${detailItem.profitDiff > 0 ? 'diff-up' : 'diff-down'}`}>
+                              {detailItem.profitDiff > 0 ? '+' : ''}
+                              {formatPrice(detailItem.profitDiff)} vs salvataggio
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </IonCardContent>
+                  </IonCard>
+
+                  <IonCard className="craft-detail-card detail-tracking-card">
+                    <IonCardHeader>
+                      <IonCardTitle>Le tue note (mercato personale)</IonCardTitle>
+                      <p className="comparison-saved-at">
+                        Usa &quot;Non impostato&quot; per gli item da controllare: compaiono in cima alla lista salvati.
+                      </p>
+                    </IonCardHeader>
+                    <IonCardContent>
+                      <IonItem lines="none">
+                        <IonLabel>Attualmente in vendita</IonLabel>
+                        <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
+                      </IonItem>
+                      <IonItem lines="none">
+                        <IonLabel position="stacked">Disponibilità vendita (ordini)</IonLabel>
+                        <IonSelect value={trSell} onIonChange={(e) => setTrSell((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
+                          {AVAIL_OPTIONS.map((o) => (
+                            <IonSelectOption key={o.value} value={o.value}>
+                              {o.label}
+                            </IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </IonItem>
+                      <IonItem lines="none">
+                        <IonLabel position="stacked">Stock / disponibilità magazzino</IonLabel>
+                        <IonSelect value={trStock} onIonChange={(e) => setTrStock((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
+                          {AVAIL_OPTIONS.map((o) => (
+                            <IonSelectOption key={o.value} value={o.value}>
+                              {o.label}
+                            </IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </IonItem>
+                      <IonButton expand="block" onClick={() => void saveCraftingTracking()} disabled={trackSaving}>
+                        {trackSaving ? 'Salvataggio…' : 'Salva note'}
+                      </IonButton>
+                    </IonCardContent>
+                  </IonCard>
+                </>
               )}
             </IonContent>
           </IonModal>

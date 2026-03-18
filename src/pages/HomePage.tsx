@@ -14,7 +14,7 @@ import type { MaterialPriceResponse } from '../types';
 import AppHeader from '../components/AppHeader';
 import './HomePage.css';
 
-const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT', 'HEART', 'CREST'];
+const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT', 'CREST'];
 
 const MATERIAL_LABELS: Record<string, string> = {
   CLOTH: 'Cloth',
@@ -22,18 +22,17 @@ const MATERIAL_LABELS: Record<string, string> = {
   PLANKS: 'Planks',
   METALBAR: 'Metal Bar',
   ARTEFACT: 'Artefact',
-  HEART: 'Heart',
   CREST: 'Crest',
 };
 
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
 
-const getPriceColor = (sell: number, avg7d: number): string => {
-  if (sell <= 0 || avg7d <= 0) return 'var(--ion-color-medium)';
-  if (sell < avg7d) return '#34d399';
-  if (sell > avg7d) return '#f87171';
-  return 'var(--ion-color-medium)';
+const sellPriceClass = (sell: number, avg7d: number): string => {
+  if (sell <= 0 || avg7d <= 0) return 'home-tile-sell--neutral';
+  if (sell < avg7d) return 'home-tile-sell--below';
+  if (sell > avg7d) return 'home-tile-sell--above';
+  return 'home-tile-sell--neutral';
 };
 
 const groupByMaterial = (prices: MaterialPriceResponse[]) => {
@@ -85,15 +84,20 @@ const HomePage: React.FC = () => {
       setLoading(true);
       const pricesData = await getMaterialPrices();
       setPrices(pricesData);
-    } catch {
-      setError('Impossibile connettersi al backend.');
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        setError('Accesso negato: token API non valido (backend e app devono usare lo stesso segreto).');
+      } else {
+        setError('Impossibile connettersi al backend.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useIonViewWillEnter(() => {
-    fetchData();
+    void fetchData();
   });
 
   const handleRefresh = async (event: CustomEvent) => {
@@ -102,8 +106,9 @@ const HomePage: React.FC = () => {
   };
 
   const drag = useDragScroll();
-  const grouped = groupByMaterial(prices);
-  const lastUpdate = prices.length > 0 ? prices[0].updatedAt : null;
+  const homePrices = prices.filter((p) => p.materialType !== 'HEART');
+  const grouped = groupByMaterial(homePrices);
+  const lastUpdate = homePrices.length > 0 ? homePrices[0].updatedAt : null;
 
   return (
     <IonPage>
@@ -114,42 +119,40 @@ const HomePage: React.FC = () => {
         </IonRefresher>
 
         <div className="home-container">
-          {/* Branding */}
-          <div className="logo-section">
+          <header className="home-hero">
             <img
               src="/assets/logo_homepage.png"
-              alt="Albion Online"
-              className="albion-logo"
+              alt=""
+              className="home-hero-logo"
             />
-            <p className="logo-subtitle">Lymhurst Market Tracker</p>
-            <p className="logo-credit">Developed by Janraion</p>
-          </div>
+            <h1 className="home-hero-title">Lymhurst</h1>
+            <p className="home-hero-tag">Prezzi materiali · media 7 giorni</p>
+            <p className="home-hero-foot">Albus · Janraion</p>
+          </header>
 
           {/* Loading */}
           {loading && (
-            <div className="state-container">
+            <div className="home-state">
               <IonSpinner name="crescent" />
             </div>
           )}
 
-          {/* Error */}
           {error && !loading && (
-            <div className="state-container">
+            <div className="home-state">
               <p>{error}</p>
             </div>
           )}
 
-          {/* Empty */}
-          {!loading && !error && prices.length === 0 && (
-            <div className="state-container">
-              <p>Nessun dato disponibile.</p>
-              <p>Forza un aggiornamento dalle impostazioni.</p>
+          {!loading && !error && homePrices.length === 0 && (
+            <div className="home-state">
+              <p>Nessun dato al momento.</p>
+              <p>Aggiorna dall’icona impostazioni in alto.</p>
             </div>
           )}
 
           {/* Material strips */}
-          {!loading && !error && prices.length > 0 && (
-            <div className="material-strips">
+          {!loading && !error && homePrices.length > 0 && (
+            <div className="home-strips">
               {MATERIAL_ORDER.map((type) => {
                 const allItems = grouped[type];
                 if (!allItems || allItems.length === 0) return null;
@@ -158,53 +161,50 @@ const HomePage: React.FC = () => {
                   ? allItems.filter((i) => i.sellPriceMin > 0 && i.avgPrice7d > 0 && i.sellPriceMin < i.avgPrice7d)
                   : allItems;
                 return (
-                  <div key={type} className="material-strip">
-                    <div className="strip-header">
-                      <span className="strip-title">{MATERIAL_LABELS[type] ?? type}</span>
+                  <section key={type} className="home-section">
+                    <div className="home-section-head">
+                      <span className="home-section-name">{MATERIAL_LABELS[type] ?? type}</span>
                       <button
-                        className={`strip-filter-btn ${isFiltered ? 'active' : ''}`}
+                        type="button"
+                        className={`home-filter ${isFiltered ? 'home-filter--on' : ''}`}
                         onClick={() => setFilterBelow((prev) => ({ ...prev, [type]: !prev[type] }))}
-                        title="Mostra solo sotto media 7g"
+                        title="Solo sotto media 7g"
+                        aria-label="Filtra sotto media"
                       >
                         <IonIcon icon={isFiltered ? funnel : funnelOutline} />
                       </button>
                     </div>
                     <div
-                      className="strip-scroll"
+                      className="home-scroll"
                       onPointerDown={drag.onPointerDown}
                       onPointerMove={drag.onPointerMove}
                       onPointerUp={drag.onPointerUp}
                       onPointerCancel={drag.onPointerUp}
                     >
                       {items.length === 0 ? (
-                        <span className="strip-empty">Nessun item sotto media</span>
+                        <span className="home-empty-hint">Nessun item sotto la media</span>
                       ) : items.map((item) => (
-                        <div key={item.itemId} className="material-card">
+                        <div key={item.itemId} className="home-tile">
                           {item.iconUrl && (
                             <img
                               src={item.iconUrl}
-                              alt={item.itemId}
-                              className="material-icon"
+                              alt=""
+                              className="home-tile-icon"
                               loading="lazy"
                               onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                           )}
-                          <div className="card-prices">
-                            <span
-                              className="card-sell"
-                              style={{ color: getPriceColor(item.sellPriceMin, item.avgPrice7d) }}
-                            >
-                              {formatPrice(item.sellPriceMin)}
-                            </span>
-                            <span className="card-avg">
-                              <IonIcon icon={timeOutline} className="card-avg-icon" />
-                              {item.avgPrice7d > 0 ? formatPrice(item.avgPrice7d) : '—'}
-                            </span>
-                          </div>
+                          <span className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, item.avgPrice7d)}`}>
+                            {formatPrice(item.sellPriceMin)}
+                          </span>
+                          <span className="home-tile-7g">
+                            <IonIcon icon={timeOutline} aria-hidden />
+                            {item.avgPrice7d > 0 ? formatPrice(item.avgPrice7d) : '—'}
+                          </span>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 );
               })}
             </div>

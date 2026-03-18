@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getApiToken } from './apiToken';
 import type {
   AppInfo,
   CraftingBonusResponse,
@@ -12,6 +13,8 @@ import type {
   SavedCraftingItemResponse,
   SavedFocusItemResponse,
   SortOption,
+  FlipProfitResponse,
+  SavedItemTrackingPayload,
 } from '../types';
 
 const PRIMARY_BASE_URL = 'http://janraion.ddns.net:1997';
@@ -22,6 +25,11 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+api.interceptors.request.use((config) => {
+  config.headers['X-API-Token'] = getApiToken();
+  return config;
 });
 
 api.interceptors.response.use(
@@ -73,8 +81,17 @@ export const triggerCraftingProfitUpdate = async (): Promise<{ message: string; 
   return data;
 };
 
-export const triggerLymhurstMarketUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {
-  const { data } = await api.post<{ message: string; itemsUpdated: number }>('/api/scheduler/update-lymhurst-market');
+/** Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford, Brecilien, Caerleon — un batch API per tutte le città. */
+export const triggerRoyalContinentUpdate = async (): Promise<{
+  message: string;
+  priceRowsWritten: number;
+  focusItemsUpdated: number;
+}> => {
+  const { data } = await api.post<{
+    message: string;
+    priceRowsWritten: number;
+    focusItemsUpdated: number;
+  }>('/api/scheduler/update-royal-continent', null, { timeout: 600_000 });
   return data;
 };
 
@@ -134,6 +151,17 @@ export const getSavedCraftingItemDetail = async (itemId: string): Promise<SavedC
   }
 };
 
+export const patchSavedCraftingTracking = async (
+  itemId: string,
+  payload: SavedItemTrackingPayload
+): Promise<SavedCraftingItemResponse> => {
+  const { data } = await api.patch<SavedCraftingItemResponse>(
+    `/api/saved-crafting-items/${encodeURIComponent(itemId)}/tracking`,
+    payload
+  );
+  return data;
+};
+
 // --- Focus Profit ---
 
 export const getFocusProfits = async (
@@ -154,6 +182,30 @@ export const getFocusProfits = async (
 export const getFocusProfitSortOptions = async (): Promise<SortOption[]> => {
   const { data } = await api.get<SortOption[]>('/api/enums/focus-profit-sort-options');
   return data;
+};
+
+export const getFlipProfits = async (
+  page: number = 0,
+  size: number = 20,
+  sortBy: string = 'PROFIT',
+  sortDirection: 'ASC' | 'DESC' = 'DESC',
+  nameSearch?: string,
+  materialsUnderAvg?: boolean
+): Promise<PageResponse<FlipProfitResponse>> => {
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
+  if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
+  if (materialsUnderAvg === true) params.materialsUnderAvg = true;
+  const { data } = await api.get<PageResponse<FlipProfitResponse>>('/api/flip', { params });
+  return data;
+};
+
+export const getFlipProfitSortOptions = async (): Promise<SortOption[]> => {
+  const { data } = await api.get<SortOption[]>('/api/enums/flip-profit-sort-options');
+  return data;
+};
+
+export const hideFlipItem = async (itemId: string): Promise<void> => {
+  await api.post('/api/flip/hide', { itemId });
 };
 
 export const getFocusRoyalMarkets = async (itemId: string): Promise<RoyalMarketsResponse> => {
@@ -190,6 +242,17 @@ export const getSavedFocusItemDetail = async (itemId: string): Promise<SavedFocu
   } catch {
     return null;
   }
+};
+
+export const patchSavedFocusTracking = async (
+  itemId: string,
+  payload: SavedItemTrackingPayload
+): Promise<SavedFocusItemResponse> => {
+  const { data } = await api.patch<SavedFocusItemResponse>(
+    `/api/saved-focus-items/${encodeURIComponent(itemId)}/tracking`,
+    payload
+  );
+  return data;
 };
 
 // --- Crafting Bonus ---

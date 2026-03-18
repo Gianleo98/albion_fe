@@ -32,6 +32,7 @@ import {
   useIonViewWillEnter,
   useIonToast,
   IonAlert,
+  IonToggle,
 } from '@ionic/react';
 import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel, bookmarkOutline, trashOutline, listOutline } from 'ionicons/icons';
 import {
@@ -43,13 +44,29 @@ import {
   deleteSavedFocusItem,
   getSavedFocusItemsWithCurrent,
   getSavedFocusItemDetail,
+  patchSavedFocusTracking,
 } from '../services/api';
-import type { FocusProfitResponse, RoyalMarketsResponse, SavedFocusItemResponse, SortOption } from '../types';
+import type { AvailabilityLevelCode, FocusProfitResponse, RoyalMarketsResponse, SavedFocusItemResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
+import { formatYieldPercent, yieldPercentFromProfitAndCost } from '../utils/yieldPercent';
 import './CraftingPage.css';
 
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
+
+function focusSellYieldFmt(item: FocusProfitResponse): string {
+  if (item.yieldPercentage != null && Number.isFinite(item.yieldPercentage)) {
+    return formatYieldPercent(item.yieldPercentage);
+  }
+  return yieldPercentFromProfitAndCost(item.profitSell, item.effectiveCostWithFocus);
+}
+
+function focusBuyYieldFmt(item: FocusProfitResponse): string {
+  if (item.yieldBuyOrderPercentage != null && Number.isFinite(item.yieldBuyOrderPercentage)) {
+    return formatYieldPercent(item.yieldBuyOrderPercentage);
+  }
+  return yieldPercentFromProfitAndCost(item.profitBuyOrder, item.effectiveCostWithFocus);
+}
 
 const resPriceClass = (level?: 'below' | 'equal' | 'above') =>
   `cp-res-price cp-res-price--${level ?? 'equal'}`;
@@ -66,6 +83,13 @@ const cleanItemName = (itemId: string): string => {
 };
 
 type ListMode = 'all' | 'saved';
+
+const AVAIL_OPTIONS: { value: AvailabilityLevelCode; label: string }[] = [
+  { value: 'NONE', label: 'Non impostato' },
+  { value: 'LOW', label: 'Basso' },
+  { value: 'MEDIUM', label: 'Medio' },
+  { value: 'HIGH', label: 'Alto' },
+];
 
 const FocusPage: React.FC = () => {
   const [items, setItems] = useState<FocusProfitResponse[]>([]);
@@ -90,6 +114,10 @@ const FocusPage: React.FC = () => {
   const [detailBasicItem, setDetailBasicItem] = useState<FocusProfitResponse | null>(null);
   const [royalMarkets, setRoyalMarkets] = useState<RoyalMarketsResponse | null>(null);
   const [royalMarketsLoading, setRoyalMarketsLoading] = useState(false);
+  const [trListed, setTrListed] = useState(false);
+  const [trSell, setTrSell] = useState<AvailabilityLevelCode>('NONE');
+  const [trStock, setTrStock] = useState<AvailabilityLevelCode>('NONE');
+  const [trackSaving, setTrackSaving] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountRef = useRef(false);
   const slidingRefs = useRef<Record<string, HTMLIonItemSlidingElement | null>>({});
@@ -181,6 +209,14 @@ const FocusPage: React.FC = () => {
     }
   }, [listMode, fetchSavedList]);
 
+  useEffect(() => {
+    if (detailItem) {
+      setTrListed(!!detailItem.listedForSale);
+      setTrSell((detailItem.sellAvailability as AvailabilityLevelCode) || 'NONE');
+      setTrStock((detailItem.stockAvailability as AvailabilityLevelCode) || 'NONE');
+    }
+  }, [detailItem?.itemId, detailItem?.listedForSale, detailItem?.sellAvailability, detailItem?.stockAvailability]);
+
   const openSaveAlert = (itemId: string, isSaved: boolean) => {
     setSaveAlertItem({ itemId, isSaved });
   };
@@ -228,6 +264,25 @@ const FocusPage: React.FC = () => {
     setDetailBasicItem(item);
     setDetailItem(null);
     setRoyalMarkets(null);
+  };
+
+  const saveFocusTracking = async () => {
+    if (!detailItem) return;
+    setTrackSaving(true);
+    try {
+      const updated = await patchSavedFocusTracking(detailItem.itemId, {
+        listedForSale: trListed,
+        sellAvailability: trSell,
+        stockAvailability: trStock,
+      });
+      setDetailItem(updated);
+      await fetchSavedList();
+      presentToast({ message: 'Note salvate. Lista riordinata.', duration: 2000, color: 'success', position: 'top' });
+    } catch {
+      presentToast({ message: 'Salvataggio fallito.', duration: 2000, color: 'danger', position: 'top' });
+    } finally {
+      setTrackSaving(false);
+    }
   };
 
   const closeDetail = () => {
@@ -376,7 +431,7 @@ const FocusPage: React.FC = () => {
           {listMode === 'all' && !loading && !error && items.length === 0 && (
             <div className="cp-state-container">
               <p>Nessun dato Focus.</p>
-              <p>Aggiorna il mercato Lymhurst e ricalcola Focus dalle impostazioni.</p>
+              <p>Aggiorna Royal Continent dal menu e ricalcola Focus se serve.</p>
             </div>
           )}
 
@@ -452,6 +507,7 @@ const FocusPage: React.FC = () => {
                       </div>
                       <div className="cp-meta">
                         <span className="cp-rrr">RRR {item.returnRateWithFocus}% (con focus)</span>
+                        {isSaved && <span className="cp-saved-badge">Salvato</span>}
                         {item.hasCityBonus && <span className="cp-bonus-badge">Bonus</span>}
                         {item.hasDailyBonus && <span className="cp-daily-badge">Bonus daily</span>}
                       </div>
@@ -461,8 +517,14 @@ const FocusPage: React.FC = () => {
                       <span className={`cp-profit ${item.profitSell >= 0 ? 'positive' : 'negative'}`}>
                         Vendita: {item.profitSell >= 0 ? '+' : ''}{formatPrice(item.profitSell)}
                       </span>
+                      <span className={`cp-yield-pct ${item.profitSell >= 0 ? 'positive' : 'negative'}`}>
+                        {focusSellYieldFmt(item)}
+                      </span>
                       <span className={`cp-profit ${item.profitBuyOrder >= 0 ? 'positive' : 'negative'}`}>
                         Buy order: {item.profitBuyOrder >= 0 ? '+' : ''}{formatPrice(item.profitBuyOrder)}
+                      </span>
+                      <span className={`cp-yield-pct ${item.profitBuyOrder >= 0 ? 'positive' : 'negative'}`}>
+                        {focusBuyYieldFmt(item)}
                       </span>
                       <span className="cp-bm-price">Lymhurst sell: {formatPrice(item.lymhurstSellPriceMin)}</span>
                       <span className="cp-bm-price">Lymhurst buy: {formatPrice(item.lymhurstBuyPriceMax)}</span>
@@ -497,35 +559,59 @@ const FocusPage: React.FC = () => {
           )}
 
           {listMode === 'saved' && !loading && savedItems.length > 0 && (
+            <>
+              <p className="cp-count" style={{ marginTop: 4 }}>
+                Ordine: prima vendita &quot;non impostata&quot;, poi profitto vendita. Tocca per dettaglio.
+              </p>
             <IonList className="cp-list">
-              {savedItems.map((s) => (
+              {savedItems.map((s) => {
+                const profitShow = s.currentDataMissing ? s.savedProfitSell : s.currentProfitSell;
+                const costShow = s.currentDataMissing ? s.savedEffectiveCost : s.currentEffectiveCost;
+                return (
                 <IonItemSliding key={s.itemId} ref={(el) => { slidingRefs.current[s.itemId] = el; }}>
                   <IonItem className="cp-item" button onClick={() => openDetailFromSaved(s.itemId)}>
                     <div className="cp-item-left" slot="start">
-                      {s.iconUrl && (
-                        <img
-                          src={s.iconUrl}
-                          alt={cleanItemName(s.itemId)}
-                          className="cp-item-icon"
-                          loading="lazy"
-                        />
+                      {s.iconUrl ? (
+                        <img src={s.iconUrl} alt="" className="cp-item-icon" loading="lazy" />
+                      ) : (
+                        <div className="cp-item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>T{s.tier}</div>
                       )}
                     </div>
                     <IonLabel>
                       <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
+                      <div className="cp-saved-chips">
+                        {(s.sellAvailability === 'NONE' || !s.sellAvailability) && (
+                          <span className="cp-avail-chip cp-avail-chip--warn">Vendita: da impostare</span>
+                        )}
+                        {s.sellAvailability && s.sellAvailability !== 'NONE' && (
+                          <span className="cp-avail-chip">Vendita: {s.sellAvailabilityLabel ?? s.sellAvailability}</span>
+                        )}
+                        <span className="cp-avail-chip">Stock: {s.stockAvailabilityLabel ?? '—'}</span>
+                        {s.listedForSale && <span className="cp-avail-chip cp-avail-chip--listed">In vendita</span>}
+                      </div>
                       <div className="cp-meta">
-                        <span className="cp-rrr">Vendita: {formatPrice(s.savedProfitSell)} → {formatPrice(s.currentProfitSell)}</span>
-                        {s.profitSellDiff !== 0 && (
-                          <span className={s.profitSellDiff >= 0 ? 'cp-profit positive' : 'cp-profit negative'}>
-                            {s.profitSellDiff >= 0 ? '+' : ''}{formatPrice(s.profitSellDiff)}
-                          </span>
+                        {s.currentDataMissing ? (
+                          <span className="cp-rrr">Non in elenco — dati al salvataggio</span>
+                        ) : (
+                          <>
+                            <span className="cp-rrr">Vendita ora {formatPrice(s.currentProfitSell)}</span>
+                            {s.profitSellDiff !== 0 && (
+                              <span className={s.profitSellDiff >= 0 ? 'cp-profit positive' : 'cp-profit negative'}>
+                                {s.profitSellDiff >= 0 ? '+' : ''}{formatPrice(s.profitSellDiff)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </IonLabel>
                     <div slot="end" className="cp-profit-col">
-                      <span className={`cp-profit ${s.currentProfitSell >= 0 ? 'positive' : 'negative'}`}>
-                        {s.currentProfitSell >= 0 ? '+' : ''}{formatPrice(s.currentProfitSell)}
+                      <span className={`cp-profit ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                        {profitShow >= 0 ? '+' : ''}{formatPrice(profitShow)}
                       </span>
+                      <span className={`cp-yield-pct ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                        {yieldPercentFromProfitAndCost(profitShow, costShow)}
+                      </span>
+                      <span className="cp-bm-price" style={{ fontSize: '0.75rem' }}>vendita</span>
                     </div>
                   </IonItem>
                   <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(s.itemId, true)}>
@@ -535,8 +621,9 @@ const FocusPage: React.FC = () => {
                     </IonItemOption>
                   </IonItemOptions>
                 </IonItemSliding>
-              ))}
+              );})}
             </IonList>
+            </>
           )}
 
           {listMode === 'saved' && !loading && savedItems.length === 0 && (
@@ -573,95 +660,175 @@ const FocusPage: React.FC = () => {
               </IonToolbar>
             </IonHeader>
             <IonContent className="ion-padding focus-detail-content">
-              {detailItem && (
-                <IonCard className="focus-detail-card comparison-card">
-                  <IonCardHeader>
-                    <IonCardTitle>Confronto nel tempo</IonCardTitle>
-                    <p className="comparison-saved-at">Salvato il {new Date(detailItem.savedAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                  </IonCardHeader>
+              {detailBasicItem && !detailItem && detailBasicItem.iconUrl && (
+                <img src={detailBasicItem.iconUrl} alt="" className="detail-hero-icon" />
+              )}
+              {detailBasicItem && !detailItem && (
+                <IonCard className="focus-detail-card" style={{ marginBottom: 12 }}>
                   <IonCardContent>
-                    <div className="comparison-list">
-                      <div className="comparison-row">
-                        <div className="comparison-metric-name">Prezzo vendita (Lymhurst)</div>
-                        <div className="comparison-columns">
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Al salvataggio</span>
-                            <span className="comparison-col-value">{formatPrice(detailItem.savedLymhurstSell)}</span>
-                          </div>
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Ora</span>
-                            <span className="comparison-col-value comparison-value-now">{formatPrice(detailItem.currentLymhurstSell)}</span>
-                          </div>
-                        </div>
-                        {detailItem.sellPriceDiff !== 0 && (
-                          <div className={`comparison-diff ${detailItem.sellPriceDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                            {detailItem.sellPriceDiff > 0 ? '+' : ''}{formatPrice(detailItem.sellPriceDiff)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="comparison-row">
-                        <div className="comparison-metric-name">Prezzo buy order (Lymhurst)</div>
-                        <div className="comparison-columns">
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Al salvataggio</span>
-                            <span className="comparison-col-value">{formatPrice(detailItem.savedLymhurstBuy)}</span>
-                          </div>
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Ora</span>
-                            <span className="comparison-col-value comparison-value-now">{formatPrice(detailItem.currentLymhurstBuy)}</span>
-                          </div>
-                        </div>
-                        {detailItem.buyPriceDiff !== 0 && (
-                          <div className={`comparison-diff ${detailItem.buyPriceDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                            {detailItem.buyPriceDiff > 0 ? '+' : ''}{formatPrice(detailItem.buyPriceDiff)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="comparison-row">
-                        <div className="comparison-metric-name">Profitto (vendita)</div>
-                        <div className="comparison-columns">
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Al salvataggio</span>
-                            <span className="comparison-col-value">{detailItem.savedProfitSell >= 0 ? '+' : ''}{formatPrice(detailItem.savedProfitSell)}</span>
-                          </div>
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Ora</span>
-                            <span className="comparison-col-value comparison-value-now">{detailItem.currentProfitSell >= 0 ? '+' : ''}{formatPrice(detailItem.currentProfitSell)}</span>
-                          </div>
-                        </div>
-                        {detailItem.profitSellDiff !== 0 && (
-                          <div className={`comparison-diff ${detailItem.profitSellDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                            {detailItem.profitSellDiff > 0 ? '+' : ''}{formatPrice(detailItem.profitSellDiff)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="comparison-row">
-                        <div className="comparison-metric-name">Profitto (buy order)</div>
-                        <div className="comparison-columns">
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Al salvataggio</span>
-                            <span className="comparison-col-value">{detailItem.savedProfitBuyOrder >= 0 ? '+' : ''}{formatPrice(detailItem.savedProfitBuyOrder)}</span>
-                          </div>
-                          <div className="comparison-col">
-                            <span className="comparison-col-label">Ora</span>
-                            <span className="comparison-col-value comparison-value-now">{detailItem.currentProfitBuyOrder >= 0 ? '+' : ''}{formatPrice(detailItem.currentProfitBuyOrder)}</span>
-                          </div>
-                        </div>
-                        {detailItem.profitBuyOrderDiff !== 0 && (
-                          <div className={`comparison-diff ${detailItem.profitBuyOrderDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                            {detailItem.profitBuyOrderDiff > 0 ? '+' : ''}{formatPrice(detailItem.profitBuyOrderDiff)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <p style={{ margin: '0 0 10px', fontWeight: 600, fontSize: '0.95rem' }}>
+                      Rendimento % sul costo (focus)
+                    </p>
+                    <p style={{ margin: '6px 0', fontSize: '0.9rem' }}>
+                      <strong>Vendita (listino Lymhurst):</strong>{' '}
+                      {focusSellYieldFmt(detailBasicItem)} — {detailBasicItem.profitSell >= 0 ? '+' : ''}
+                      {formatPrice(detailBasicItem.profitSell)}
+                    </p>
+                    <p style={{ margin: '6px 0', fontSize: '0.9rem' }}>
+                      <strong>Buy order Lymhurst:</strong>{' '}
+                      {focusBuyYieldFmt(detailBasicItem)} — {detailBasicItem.profitBuyOrder >= 0 ? '+' : ''}
+                      {formatPrice(detailBasicItem.profitBuyOrder)}
+                    </p>
                   </IonCardContent>
                 </IonCard>
+              )}
+              {detailItem && detailItem.iconUrl && (
+                <img src={detailItem.iconUrl} alt="" className="detail-hero-icon" />
+              )}
+              {detailItem?.currentDataMissing && (
+                <div className="detail-missing-banner">
+                  <strong>Non più nell&apos;elenco Focus attuale.</strong> Valori &quot;ora&quot; non disponibili; sotto i dati al salvataggio.
+                </div>
+              )}
+              {detailItem && (
+                <>
+                  <IonCard className="focus-detail-card comparison-card">
+                    <IonCardHeader>
+                      <IonCardTitle>Mercato Lymhurst (materie craft)</IonCardTitle>
+                      <p className="comparison-saved-at">
+                        Snapshot {new Date(detailItem.savedAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </IonCardHeader>
+                    <IonCardContent>
+                      <p className="detail-metric-hint">Prezzo vendita = costo minimo per comprare l&apos;item a Lymhurst. Buy order = quanto ti pagano se vendi lì.</p>
+                      <div className="comparison-list">
+                        <div className="comparison-row">
+                          <div className="comparison-metric-name">Prezzo vendita Lymhurst</div>
+                          <div className="comparison-columns">
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">Al salvataggio</span>
+                              <span className="comparison-col-value">{formatPrice(detailItem.savedLymhurstSell)}</span>
+                            </div>
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">{detailItem.currentDataMissing ? 'Ora' : 'Ora aggiornato'}</span>
+                              <span className="comparison-col-value comparison-value-now">
+                                {detailItem.currentDataMissing ? '—' : formatPrice(detailItem.currentLymhurstSell)}
+                              </span>
+                            </div>
+                          </div>
+                          {!detailItem.currentDataMissing && detailItem.sellPriceDiff !== 0 && (
+                            <div className={`comparison-diff ${detailItem.sellPriceDiff > 0 ? 'diff-up' : 'diff-down'}`}>
+                              {detailItem.sellPriceDiff > 0 ? '+' : ''}{formatPrice(detailItem.sellPriceDiff)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="comparison-row">
+                          <div className="comparison-metric-name">Buy order Lymhurst</div>
+                          <div className="comparison-columns">
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">Al salvataggio</span>
+                              <span className="comparison-col-value">{formatPrice(detailItem.savedLymhurstBuy)}</span>
+                            </div>
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">{detailItem.currentDataMissing ? 'Ora' : 'Ora aggiornato'}</span>
+                              <span className="comparison-col-value comparison-value-now">
+                                {detailItem.currentDataMissing ? '—' : formatPrice(detailItem.currentLymhurstBuy)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="comparison-row">
+                          <div className="comparison-metric-name">Profitto scenario vendita</div>
+                          <p className="detail-metric-hint">Compri a Lymhurst (sell order) e rivendi al BM.</p>
+                          <div className="comparison-columns">
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">Al salvataggio</span>
+                              <span className="comparison-col-value">{detailItem.savedProfitSell >= 0 ? '+' : ''}{formatPrice(detailItem.savedProfitSell)}</span>
+                              <span className="comparison-yield-pct">
+                                Rend. {yieldPercentFromProfitAndCost(detailItem.savedProfitSell, detailItem.savedEffectiveCost)}
+                              </span>
+                            </div>
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">{detailItem.currentDataMissing ? 'Ora' : 'Ora aggiornato'}</span>
+                              <span className="comparison-col-value comparison-value-now">
+                                {detailItem.currentDataMissing ? '—' : `${detailItem.currentProfitSell >= 0 ? '+' : ''}${formatPrice(detailItem.currentProfitSell)}`}
+                              </span>
+                              {!detailItem.currentDataMissing && (
+                                <span className="comparison-yield-pct">
+                                  Rend. {yieldPercentFromProfitAndCost(detailItem.currentProfitSell, detailItem.currentEffectiveCost)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="comparison-row">
+                          <div className="comparison-metric-name">Profitto scenario buy order</div>
+                          <p className="detail-metric-hint">Compri materie e vendi la craft al buy order Lymhurst.</p>
+                          <div className="comparison-columns">
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">Al salvataggio</span>
+                              <span className="comparison-col-value">{detailItem.savedProfitBuyOrder >= 0 ? '+' : ''}{formatPrice(detailItem.savedProfitBuyOrder)}</span>
+                              <span className="comparison-yield-pct">
+                                Rend. {yieldPercentFromProfitAndCost(detailItem.savedProfitBuyOrder, detailItem.savedEffectiveCost)}
+                              </span>
+                            </div>
+                            <div className="comparison-col">
+                              <span className="comparison-col-label">{detailItem.currentDataMissing ? 'Ora' : 'Ora aggiornato'}</span>
+                              <span className="comparison-col-value comparison-value-now">
+                                {detailItem.currentDataMissing ? '—' : `${detailItem.currentProfitBuyOrder >= 0 ? '+' : ''}${formatPrice(detailItem.currentProfitBuyOrder)}`}
+                              </span>
+                              {!detailItem.currentDataMissing && (
+                                <span className="comparison-yield-pct">
+                                  Rend. {yieldPercentFromProfitAndCost(detailItem.currentProfitBuyOrder, detailItem.currentEffectiveCost)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </IonCardContent>
+                  </IonCard>
+                  <IonCard className="focus-detail-card detail-tracking-card">
+                    <IonCardHeader>
+                      <IonCardTitle>Le tue note</IonCardTitle>
+                      <p className="comparison-saved-at">&quot;Non impostato&quot; in cima alla lista salvati.</p>
+                    </IonCardHeader>
+                    <IonCardContent>
+                      <IonItem lines="none">
+                        <IonLabel>Attualmente in vendita</IonLabel>
+                        <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
+                      </IonItem>
+                      <IonItem lines="none">
+                        <IonLabel position="stacked">Disponibilità vendita</IonLabel>
+                        <IonSelect value={trSell} onIonChange={(e) => setTrSell((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
+                          {AVAIL_OPTIONS.map((o) => (
+                            <IonSelectOption key={o.value} value={o.value}>{o.label}</IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </IonItem>
+                      <IonItem lines="none">
+                        <IonLabel position="stacked">Stock</IonLabel>
+                        <IonSelect value={trStock} onIonChange={(e) => setTrStock((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
+                          {AVAIL_OPTIONS.map((o) => (
+                            <IonSelectOption key={o.value} value={o.value}>{o.label}</IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </IonItem>
+                      <IonButton expand="block" onClick={() => void saveFocusTracking()} disabled={trackSaving}>
+                        {trackSaving ? 'Salvataggio…' : 'Salva note'}
+                      </IonButton>
+                    </IonCardContent>
+                  </IonCard>
+                </>
               )}
 
               <IonCard className="focus-detail-card">
                 <IonCardHeader>
-                  <IonCardTitle>Tutti i mercati Royal</IonCardTitle>
-                  <p className="focus-detail-subtitle">Lista completa di tutti i mercati, ordinata dal più proficuo.</p>
+                  <IonCardTitle>Cerca mercati — miglior prezzo</IonCardTitle>
+                  <p className="focus-detail-subtitle">
+                    Dati da DB (Royal Continent). Confronto tra Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford,{' '}
+                    <strong>Brecilien</strong> e Caerleon: stesso item, classifica per listino vendita e buy order.
+                  </p>
                 </IonCardHeader>
                 <IonCardContent>
                   <IonButton expand="block" onClick={loadRoyalMarkets} disabled={royalMarketsLoading} className="focus-detail-load-btn">
@@ -669,6 +836,22 @@ const FocusPage: React.FC = () => {
                   </IonButton>
                   {royalMarkets && (
                     <div className="focus-markets-wrap">
+                      {(royalMarkets.bestSellListCity || royalMarkets.bestBuyOrderCity) && (
+                        <div className="focus-market-best-banner" style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'var(--ion-color-step-100, #1e1e1e)' }}>
+                          {royalMarkets.bestSellListCity && (
+                            <p style={{ margin: '0 0 6px 0', fontSize: '0.95rem' }}>
+                              <strong>Miglior listino vendita:</strong> {royalMarkets.bestSellListCity}
+                              {royalMarkets.bestSellListCity === 'Brecilien' && ' ✓'}
+                            </p>
+                          )}
+                          {royalMarkets.bestBuyOrderCity && (
+                            <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                              <strong>Miglior buy order:</strong> {royalMarkets.bestBuyOrderCity}
+                              {royalMarkets.bestBuyOrderCity === 'Brecilien' && ' ✓'}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <div className="focus-market-section">
                         <h3 className="focus-market-section-title">Vendita (sell order)</h3>
                         <div className="focus-market-list">
