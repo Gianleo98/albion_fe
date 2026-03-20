@@ -15,15 +15,10 @@ import {
   IonInput,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
-  IonItemSliding,
-  IonItemOptions,
-  IonItemOption,
   useIonViewWillEnter,
-  useIonToast,
-  IonAlert,
 } from '@ionic/react';
-import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel, eyeOffOutline } from 'ionicons/icons';
-import { getFlipProfits, getFlipProfitSortOptions, hideFlipItem } from '../services/api';
+import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel } from 'ionicons/icons';
+import { getFlipProfits, getFlipProfitSortOptions } from '../services/api';
 import type { FlipProfitResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
 import './CraftingPage.css';
@@ -57,11 +52,8 @@ const FlipPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
-  const [hideAlertItem, setHideAlertItem] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountRef = useRef(false);
-  const slidingRefs = useRef<Record<string, HTMLIonItemSlidingElement | null>>({});
-  const [presentToast] = useIonToast();
 
   useEffect(() => {
     searchDebounceRef.current = setTimeout(() => setNameSearch(searchInput), 400);
@@ -161,21 +153,6 @@ const FlipPage: React.FC = () => {
     fetchItems(0, true, sortBy, next);
   };
 
-  const confirmHide = async () => {
-    const id = hideAlertItem;
-    setHideAlertItem(null);
-    if (!id) return;
-    try {
-      await hideFlipItem(id);
-      setItems((prev) => prev.filter((x) => x.itemId !== id));
-      setTotalElements((t) => Math.max(0, t - 1));
-      slidingRefs.current[id]?.close();
-      presentToast({ message: 'Rimosso dalla lista', duration: 2000, color: 'success', position: 'top' });
-    } catch {
-      presentToast({ message: 'Errore', duration: 2000, color: 'danger', position: 'top' });
-    }
-  };
-
   return (
     <IonPage>
       <AppHeader onFlipUpdated={() => { setLoading(true); fetchItems(0, true); }} />
@@ -266,69 +243,56 @@ const FlipPage: React.FC = () => {
             <>
               <IonList className="cp-list">
                 {items.map((item) => (
-                    <IonItemSliding
-                      key={item.itemId}
-                      ref={(el) => {
-                        slidingRefs.current[item.itemId] = el;
-                      }}
-                    >
-                      <IonItem className="cp-item">
-                        <div className="cp-item-left" slot="start">
-                          <button
-                            type="button"
-                            className="cp-icon-btn"
-                            onClick={() =>
-                              setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)
+                  <IonItem key={item.itemId} className="cp-item">
+                    <div className="cp-item-left" slot="start">
+                      <button
+                        type="button"
+                        className="cp-icon-btn"
+                        onClick={() =>
+                          setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)
+                        }
+                      >
+                        {item.iconUrl && !failedIcons.has(item.itemId) ? (
+                          <img
+                            src={item.iconUrl}
+                            alt=""
+                            className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                            loading="lazy"
+                            onError={() =>
+                              setFailedIcons((prev) => new Set(prev).add(item.itemId))
                             }
-                          >
-                            {item.iconUrl && !failedIcons.has(item.itemId) ? (
-                              <img
-                                src={item.iconUrl}
-                                alt=""
-                                className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
-                                loading="lazy"
-                                onError={() =>
-                                  setFailedIcons((prev) => new Set(prev).add(item.itemId))
-                                }
-                              />
-                            ) : (
-                              <div className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ion-color-step-150)', fontSize: 10 }}>
-                                T{item.tier}
-                              </div>
-                            )}
-                          </button>
-                        </div>
-                        <IonLabel>
-                          <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
-                          <div className="cp-meta">
-                            <span>T{item.tier}</span>
-                            {item.enchantment > 0 && <span> .{item.enchantment}</span>}
-                            <span> · {item.category}</span>
+                          />
+                        ) : (
+                          <div className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ion-color-step-150)', fontSize: 10 }}>
+                            T{item.tier}
                           </div>
-                          <div className="cp-resources" style={{ marginTop: 6 }}>
-                            <span className="cp-res-price cp-res-price--equal">
-                              Caerleon: {formatPrice(item.caerleonSellPriceMin)}
-                            </span>
-                            <span className="cp-res-sep">→</span>
-                            <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
-                          </div>
-                          <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
-                            Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
-                          </div>
-                        </IonLabel>
-                        <div slot="end" className="cp-profit-col">
-                          <span className="cp-profit positive">+{formatPrice(item.profit)}</span>
-                          <span className="cp-bm-price">+{item.profitPercentage.toFixed(1)}%</span>
-                        </div>
-                      </IonItem>
-                      <IonItemOptions side="end">
-                        <IonItemOption color="medium" onClick={() => setHideAlertItem(item.itemId)}>
-                          <IonIcon icon={eyeOffOutline} slot="start" />
-                          Nascondi
-                        </IonItemOption>
-                      </IonItemOptions>
-                    </IonItemSliding>
-                  ))}
+                        )}
+                      </button>
+                    </div>
+                    <IonLabel>
+                      <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
+                      <div className="cp-meta">
+                        <span>T{item.tier}</span>
+                        {item.enchantment > 0 && <span> .{item.enchantment}</span>}
+                        <span> · {item.category}</span>
+                      </div>
+                      <div className="cp-resources" style={{ marginTop: 6 }}>
+                        <span className="cp-res-price cp-res-price--equal">
+                          Caerleon: {formatPrice(item.caerleonSellPriceMin)}
+                        </span>
+                        <span className="cp-res-sep">→</span>
+                        <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
+                        Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
+                      </div>
+                    </IonLabel>
+                    <div slot="end" className="cp-profit-col">
+                      <span className="cp-profit positive">+{formatPrice(item.profit)}</span>
+                      <span className="cp-bm-price">+{item.profitPercentage.toFixed(1)}%</span>
+                    </div>
+                  </IonItem>
+                ))}
               </IonList>
               <IonInfiniteScroll disabled={!hasMore} onIonInfinite={loadMore}>
                 <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Caricamento..." />
@@ -336,17 +300,6 @@ const FlipPage: React.FC = () => {
             </>
           )}
         </div>
-
-        <IonAlert
-          isOpen={!!hideAlertItem}
-          onDidDismiss={() => setHideAlertItem(null)}
-          header="Nascondi dalla lista"
-          message="L’item non comparirà più tra le opportunità (es. già venduto). Puoi aggiornare i dati mercato per nuovi match."
-          buttons={[
-            { text: 'Annulla', role: 'cancel' },
-            { text: 'Nascondi', handler: confirmHide },
-          ]}
-        />
       </IonContent>
     </IonPage>
   );

@@ -264,9 +264,11 @@
   font-weight: 600;
 }
 
+/* "In vendita": sfondo verde con testo scuro per leggibilità in dark theme */
 .cp-avail-chip--listed {
-  background: var(--ion-color-success-tint);
-  color: var(--ion-color-success-shade);
+  background: #059669;
+  color: #f0fdf4;
+  font-weight: 600;
 }
 
 .detail-missing-banner {

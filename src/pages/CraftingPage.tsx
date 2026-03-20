@@ -529,6 +529,7 @@ const CraftingPage: React.FC = () => {
                     <IonLabel>
                       <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
                       <div className="cp-saved-chips">
+                        {s.listedForSale && <span className="cp-avail-chip cp-avail-chip--listed">In vendita</span>}
                         {(s.sellAvailability === 'NONE' || !s.sellAvailability) && (
                           <span className="cp-avail-chip cp-avail-chip--warn">Vendita: da impostare</span>
                         )}
@@ -536,7 +537,6 @@ const CraftingPage: React.FC = () => {
                           <span className="cp-avail-chip">Vendita: {s.sellAvailabilityLabel ?? s.sellAvailability}</span>
                         )}
                         <span className="cp-avail-chip">Stock: {s.stockAvailabilityLabel ?? '—'}</span>
-                        {s.listedForSale && <span className="cp-avail-chip cp-avail-chip--listed">In vendita</span>}
                       </div>
                       <div className="cp-meta">
                         {s.currentDataMissing ? (

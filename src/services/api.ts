@@ -204,10 +204,6 @@ export const getFlipProfitSortOptions = async (): Promise<SortOption[]> => {
   return data;
 };
 
-export const hideFlipItem = async (itemId: string): Promise<void> => {
-  await api.post('/api/flip/hide', { itemId });
-};
-
 export const getFocusRoyalMarkets = async (itemId: string): Promise<RoyalMarketsResponse> => {
   const { data } = await api.get<RoyalMarketsResponse>('/api/focus-profit/royal-markets', {
     params: { itemId },
