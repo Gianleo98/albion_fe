@@ -34,7 +34,18 @@ import {
   IonAlert,
   IonToggle,
 } from '@ionic/react';
-import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel, bookmarkOutline, trashOutline, listOutline } from 'ionicons/icons';
+import {
+  arrowDownOutline,
+  arrowUpOutline,
+  searchOutline,
+  funnelOutline,
+  funnel,
+  flashOutline,
+  flash,
+  bookmarkOutline,
+  trashOutline,
+  listOutline,
+} from 'ionicons/icons';
 import {
   getFocusProfits,
   getFocusProfitSortOptions,
@@ -54,18 +65,24 @@ import './CraftingPage.css';
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
 
-function focusSellYieldFmt(item: FocusProfitResponse): string {
-  if (item.yieldPercentage != null && Number.isFinite(item.yieldPercentage)) {
-    return formatYieldPercent(item.yieldPercentage);
+function focusSellYieldFmt(item: FocusProfitResponse, withFocus: boolean): string {
+  const y = withFocus ? item.yieldPercentage : item.yieldPercentageWithoutFocus;
+  const profit = withFocus ? item.profitSell : (item.profitSellWithoutFocus ?? 0);
+  const cost = withFocus ? item.effectiveCostWithFocus : (item.effectiveCostWithoutFocus ?? 0);
+  if (y != null && Number.isFinite(y)) {
+    return formatYieldPercent(y);
   }
-  return yieldPercentFromProfitAndCost(item.profitSell, item.effectiveCostWithFocus);
+  return yieldPercentFromProfitAndCost(profit, cost);
 }
 
-function focusBuyYieldFmt(item: FocusProfitResponse): string {
-  if (item.yieldBuyOrderPercentage != null && Number.isFinite(item.yieldBuyOrderPercentage)) {
-    return formatYieldPercent(item.yieldBuyOrderPercentage);
+function focusBuyYieldFmt(item: FocusProfitResponse, withFocus: boolean): string {
+  const y = withFocus ? item.yieldBuyOrderPercentage : item.yieldBuyOrderPercentageWithoutFocus;
+  const profit = withFocus ? item.profitBuyOrder : (item.profitBuyOrderWithoutFocus ?? 0);
+  const cost = withFocus ? item.effectiveCostWithFocus : (item.effectiveCostWithoutFocus ?? 0);
+  if (y != null && Number.isFinite(y)) {
+    return formatYieldPercent(y);
   }
-  return yieldPercentFromProfitAndCost(item.profitBuyOrder, item.effectiveCostWithFocus);
+  return yieldPercentFromProfitAndCost(profit, cost);
 }
 
 const resPriceClass = (level?: 'below' | 'equal' | 'above') =>
@@ -109,6 +126,8 @@ const FocusPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
+  /** Lista e ordinamento: con focus (default) vs senza focus (RRR base, stessi prezzi Lymhurst). */
+  const [scenarioWithFocus, setScenarioWithFocus] = useState(true);
   const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean } | null>(null);
   const [detailItem, setDetailItem] = useState<SavedFocusItemResponse | null>(null);
   const [detailBasicItem, setDetailBasicItem] = useState<FocusProfitResponse | null>(null);
@@ -137,7 +156,7 @@ const FocusPage: React.FC = () => {
     }
     setLoading(true);
     fetchItems(0, true);
-  }, [nameSearch, materialsUnderAvg]);
+  }, [nameSearch, materialsUnderAvg, scenarioWithFocus]);
 
   const fetchItems = useCallback(
     async (
@@ -149,7 +168,15 @@ const FocusPage: React.FC = () => {
       const sort = sortByOverride ?? sortBy;
       const direction = sortDirectionOverride ?? sortDirection;
       try {
-        const data = await getFocusProfits(pageNum, 20, sort, direction, nameSearch || undefined, materialsUnderAvg || undefined);
+        const data = await getFocusProfits(
+          pageNum,
+          20,
+          sort,
+          direction,
+          nameSearch || undefined,
+          materialsUnderAvg || undefined,
+          scenarioWithFocus
+        );
         if (reset) {
           setItems(data.content);
         } else {
@@ -166,7 +193,7 @@ const FocusPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [sortBy, sortDirection, nameSearch, materialsUnderAvg]
+    [sortBy, sortDirection, nameSearch, materialsUnderAvg, scenarioWithFocus]
   );
 
   const fetchSavedIds = useCallback(async () => {
@@ -371,6 +398,23 @@ const FocusPage: React.FC = () => {
             </IonItem>
             <button
               type="button"
+              className={`cp-filter-below-btn ${scenarioWithFocus ? 'active' : ''}`}
+              onClick={() => setScenarioWithFocus((prev) => !prev)}
+              title={
+                scenarioWithFocus
+                  ? 'Calcolo con focus (attivo). Tocca per elenco profittevole senza focus.'
+                  : 'Elenco senza focus. Tocca per tornare al calcolo con focus.'
+              }
+              aria-label={
+                scenarioWithFocus
+                  ? 'Passa a calcolo senza focus'
+                  : 'Passa a calcolo con focus'
+              }
+            >
+              <IonIcon icon={scenarioWithFocus ? flash : flashOutline} />
+            </button>
+            <button
+              type="button"
               className={`cp-filter-below-btn ${materialsUnderAvg ? 'active' : ''}`}
               onClick={() => {
                 setSearchInput('');
@@ -412,8 +456,19 @@ const FocusPage: React.FC = () => {
             </IonButton>
           </div>
 
+          <p
+            className="cp-count"
+            style={{ marginTop: 6, marginBottom: 4, fontSize: '0.78rem', opacity: 0.72, lineHeight: 1.35 }}
+          >
+            Nota: il profitto <strong>vendita</strong> (sell order) include già tassa mercato e{' '}
+            <strong>2,5% setup fee</strong> sul listino; lo scenario <strong>buy order</strong> senza setup fee.
+          </p>
+
           {!loading && listMode === 'all' && totalElements > 0 && (
-            <p className="cp-count">{totalElements} item totali (Lymhurst + focus)</p>
+            <p className="cp-count">
+              {totalElements} item totali (Lymhurst
+              {scenarioWithFocus ? ', profitto con focus' : ', profitto senza focus'})
+            </p>
           )}
 
           {listMode === 'all' && loading && (
@@ -440,6 +495,11 @@ const FocusPage: React.FC = () => {
               <IonList className="cp-list">
                 {items.filter((item) => item.iconUrl && !failedIcons.has(item.itemId)).map((item) => {
                   const isSaved = savedItemIds.has(item.itemId);
+                  const profitSellShow = scenarioWithFocus ? item.profitSell : (item.profitSellWithoutFocus ?? 0);
+                  const profitBuyShow = scenarioWithFocus ? item.profitBuyOrder : (item.profitBuyOrderWithoutFocus ?? 0);
+                  const costEff = scenarioWithFocus ? item.effectiveCostWithFocus : (item.effectiveCostWithoutFocus ?? 0);
+                  const costShow = costEff > 0 ? costEff : item.totalMaterialCost;
+                  const rrrShow = scenarioWithFocus ? item.returnRateWithFocus : (item.returnRateWithoutFocus ?? 0);
                   return (
                     <IonItemSliding key={item.itemId} ref={(el) => { slidingRefs.current[item.itemId] = el; }}>
                       <IonItem className="cp-item" button onClick={() => openDetailFromItem(item)}>
@@ -506,7 +566,9 @@ const FocusPage: React.FC = () => {
                         )}
                       </div>
                       <div className="cp-meta">
-                        <span className="cp-rrr">RRR {item.returnRateWithFocus}% (con focus)</span>
+                        <span className="cp-rrr">
+                          RRR {rrrShow}% ({scenarioWithFocus ? 'con' : 'senza'} focus)
+                        </span>
                         {isSaved && <span className="cp-saved-badge">Salvato</span>}
                         {item.hasCityBonus && <span className="cp-bonus-badge">Bonus</span>}
                         {item.hasDailyBonus && <span className="cp-daily-badge">Bonus daily</span>}
@@ -514,21 +576,21 @@ const FocusPage: React.FC = () => {
                     </IonLabel>
 
                     <div slot="end" className="cp-profit-col">
-                      <span className={`cp-profit ${item.profitSell >= 0 ? 'positive' : 'negative'}`}>
-                        Vendita: {item.profitSell >= 0 ? '+' : ''}{formatPrice(item.profitSell)}
+                      <span className={`cp-profit ${profitSellShow >= 0 ? 'positive' : 'negative'}`}>
+                        Vendita: {profitSellShow >= 0 ? '+' : ''}{formatPrice(profitSellShow)}
                       </span>
-                      <span className={`cp-yield-pct ${item.profitSell >= 0 ? 'positive' : 'negative'}`}>
-                        {focusSellYieldFmt(item)}
+                      <span className={`cp-yield-pct ${profitSellShow >= 0 ? 'positive' : 'negative'}`}>
+                        {focusSellYieldFmt(item, scenarioWithFocus)}
                       </span>
-                      <span className={`cp-profit ${item.profitBuyOrder >= 0 ? 'positive' : 'negative'}`}>
-                        Buy order: {item.profitBuyOrder >= 0 ? '+' : ''}{formatPrice(item.profitBuyOrder)}
+                      <span className={`cp-profit ${profitBuyShow >= 0 ? 'positive' : 'negative'}`}>
+                        Buy order: {profitBuyShow >= 0 ? '+' : ''}{formatPrice(profitBuyShow)}
                       </span>
-                      <span className={`cp-yield-pct ${item.profitBuyOrder >= 0 ? 'positive' : 'negative'}`}>
-                        {focusBuyYieldFmt(item)}
+                      <span className={`cp-yield-pct ${profitBuyShow >= 0 ? 'positive' : 'negative'}`}>
+                        {focusBuyYieldFmt(item, scenarioWithFocus)}
                       </span>
                       <span className="cp-bm-price">Lymhurst sell: {formatPrice(item.lymhurstSellPriceMin)}</span>
                       <span className="cp-bm-price">Lymhurst buy: {formatPrice(item.lymhurstBuyPriceMax)}</span>
-                      <span className="cp-cost">Costo: {formatPrice(item.effectiveCostWithFocus > 0 ? item.effectiveCostWithFocus : item.totalMaterialCost)}</span>
+                      <span className="cp-cost">Costo: {formatPrice(costShow)}</span>
                     </div>
                       </IonItem>
                       <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(item.itemId, isSaved)}>
@@ -667,17 +729,19 @@ const FocusPage: React.FC = () => {
                 <IonCard className="focus-detail-card" style={{ marginBottom: 12 }}>
                   <IonCardContent>
                     <p style={{ margin: '0 0 10px', fontWeight: 600, fontSize: '0.95rem' }}>
-                      Rendimento % sul costo (focus)
+                      Rendimento % sul costo ({scenarioWithFocus ? 'con focus' : 'senza focus'})
                     </p>
                     <p style={{ margin: '6px 0', fontSize: '0.9rem' }}>
                       <strong>Vendita (listino Lymhurst):</strong>{' '}
-                      {focusSellYieldFmt(detailBasicItem)} — {detailBasicItem.profitSell >= 0 ? '+' : ''}
-                      {formatPrice(detailBasicItem.profitSell)}
+                      {focusSellYieldFmt(detailBasicItem, scenarioWithFocus)} —{' '}
+                      {(scenarioWithFocus ? detailBasicItem.profitSell : (detailBasicItem.profitSellWithoutFocus ?? 0)) >= 0 ? '+' : ''}
+                      {formatPrice(scenarioWithFocus ? detailBasicItem.profitSell : (detailBasicItem.profitSellWithoutFocus ?? 0))}
                     </p>
                     <p style={{ margin: '6px 0', fontSize: '0.9rem' }}>
                       <strong>Buy order Lymhurst:</strong>{' '}
-                      {focusBuyYieldFmt(detailBasicItem)} — {detailBasicItem.profitBuyOrder >= 0 ? '+' : ''}
-                      {formatPrice(detailBasicItem.profitBuyOrder)}
+                      {focusBuyYieldFmt(detailBasicItem, scenarioWithFocus)} —{' '}
+                      {(scenarioWithFocus ? detailBasicItem.profitBuyOrder : (detailBasicItem.profitBuyOrderWithoutFocus ?? 0)) >= 0 ? '+' : ''}
+                      {formatPrice(scenarioWithFocus ? detailBasicItem.profitBuyOrder : (detailBasicItem.profitBuyOrderWithoutFocus ?? 0))}
                     </p>
                   </IonCardContent>
                 </IonCard>

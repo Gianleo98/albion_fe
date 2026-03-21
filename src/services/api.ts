@@ -170,9 +170,10 @@ export const getFocusProfits = async (
   sortBy: string = 'PROFIT_SELL',
   sortDirection: 'ASC' | 'DESC' = 'DESC',
   nameSearch?: string,
-  materialsUnderAvg?: boolean
+  materialsUnderAvg?: boolean,
+  withFocus: boolean = true
 ): Promise<PageResponse<FocusProfitResponse>> => {
-  const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection, withFocus };
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
   if (materialsUnderAvg === true) params.materialsUnderAvg = true;
   const { data } = await api.get<PageResponse<FocusProfitResponse>>('/api/focus-profit', { params });

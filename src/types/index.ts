@@ -199,6 +199,8 @@ export interface FocusProfitResponse {
   crestPriceLevel?: 'below' | 'equal' | 'above';
   totalMaterialCost: number;
   effectiveCostWithFocus: number;
+  returnRateWithoutFocus?: number;
+  effectiveCostWithoutFocus?: number;
   lymhurstSellPriceMin: number;
   lymhurstBuyPriceMax: number;
   profitSell: number;
@@ -207,6 +209,10 @@ export interface FocusProfitResponse {
   yieldPercentage?: number;
   /** % rendimento su costo con focus (buy order) */
   yieldBuyOrderPercentage?: number;
+  profitSellWithoutFocus?: number;
+  profitBuyOrderWithoutFocus?: number;
+  yieldPercentageWithoutFocus?: number;
+  yieldBuyOrderPercentageWithoutFocus?: number;
   returnRateWithFocus: number;
   hasCityBonus: boolean;
   hasDailyBonus: boolean;
