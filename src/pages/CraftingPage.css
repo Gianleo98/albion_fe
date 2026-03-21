@@ -223,6 +223,23 @@
   gap: 6px;
 }
 
+.cp-saved-live-meta {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.cp-saved-profit-vs-save {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.cp-saved-profit-vs-save--up {
+  color: var(--ion-color-success);
+}
+.cp-saved-profit-vs-save--down {
+  color: #e57373;
+}
+
 .cp-rrr {
   font-size: 0.68rem;
   color: var(--ion-color-medium);
@@ -255,6 +272,79 @@
   border-radius: 8px;
   background: var(--ion-color-step-150);
   color: var(--ion-text-color);
+}
+
+/* Stock: 4 livelli con icone distinte (file tray → archivio) */
+.cp-stock-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+.cp-stock-chip__icon {
+  font-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.cp-stock-chip--inline {
+  width: 26px;
+  height: 26px;
+}
+.cp-stock-chip--inline .cp-stock-chip__icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}
+.cp-stock-chip--none {
+  background: var(--ion-color-step-150, rgba(120, 120, 128, 0.16));
+  color: var(--ion-color-medium, #92949c);
+}
+.cp-stock-chip--low {
+  background: rgba(234, 179, 8, 0.22);
+  color: #b45309;
+}
+.cp-stock-chip--medium {
+  background: rgba(59, 130, 246, 0.2);
+  color: #2563eb;
+}
+.cp-stock-chip--high {
+  background: rgba(5, 150, 105, 0.22);
+  color: #047857;
+}
+
+/* Allineata a flash / prezzo nella riga titolo lista salvati */
+.cp-stock-chip--title-row {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent !important;
+  line-height: 0;
+}
+.cp-stock-chip--title-row .cp-stock-chip__icon {
+  font-size: 1.05rem;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.cp-stock-chip--title-row.cp-stock-chip--none {
+  color: var(--ion-color-medium, #92949c);
+  opacity: 0.72;
+}
+.cp-stock-chip--title-row.cp-stock-chip--low {
+  color: #ca8a04;
+  opacity: 0.95;
+}
+.cp-stock-chip--title-row.cp-stock-chip--medium {
+  color: #3b82f6;
+  opacity: 0.95;
+}
+.cp-stock-chip--title-row.cp-stock-chip--high {
+  color: var(--ion-color-success-tint, #2dd36f);
+  opacity: 1;
 }
 
 /* Testo scuro su sfondo giallo/ambra — leggibile in tema scuro */
@@ -304,6 +394,117 @@
   --inner-padding-end: 0;
 }
 
+/* Form "Le tue note" — compatto, lista unica, action sheet sui select */
+.notes-tracking-card {
+  box-shadow: none !important;
+  border: 1px solid var(--ion-color-step-150, rgba(255, 255, 255, 0.08));
+  background: var(--ion-item-background, var(--ion-background-color));
+}
+.notes-tracking {
+  padding: 14px 16px 18px !important;
+}
+.notes-tracking__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.notes-tracking__title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+  padding-top: 2px;
+  color: var(--ion-text-color);
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.notes-tracking__save-btn {
+  flex-shrink: 0;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  margin: 0;
+  min-height: 44px;
+  min-width: 44px;
+}
+.notes-tracking__save-icon {
+  font-size: 1.45rem;
+  color: var(--ion-color-success, #2dd36f);
+}
+.notes-tracking__save-spinner {
+  width: 22px;
+  height: 22px;
+  color: var(--ion-color-success, #2dd36f);
+}
+.notes-tracking__hint {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ion-color-medium);
+  margin: 0 0 14px;
+}
+.notes-tracking__shell {
+  border-radius: 12px;
+  border: 1px solid var(--ion-color-step-100, rgba(255, 255, 255, 0.06));
+  background: var(--ion-color-step-50, rgba(255, 255, 255, 0.035));
+  overflow: hidden;
+}
+.notes-tracking__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  min-height: 48px;
+  gap: 14px;
+}
+.notes-tracking__label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ion-text-color);
+  flex: 1;
+  line-height: 1.3;
+}
+.notes-tracking__field {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--ion-color-step-100, rgba(255, 255, 255, 0.06));
+}
+.notes-tracking__sublabel {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ion-color-medium);
+  margin-bottom: 4px;
+}
+.notes-tracking__sublabel--with-stock-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.notes-tracking__sublabel--with-stock-icon .notes-tracking__sublabel-text {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ion-color-medium);
+}
+.notes-tracking__item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 42px;
+  --inner-border-width: 0;
+  margin: 0;
+}
+.notes-tracking__item ion-select {
+  width: 100%;
+  max-width: 100%;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
 .cp-bonus-badge {
   font-size: 0.6rem;
   font-weight: 700;
@@ -718,66 +919,200 @@
   padding-top: 12px;
   border-top: 1px solid var(--ion-color-light-shade);
 }
-.focus-detail-load-btn {
-  margin-bottom: 18px;
-  --border-radius: 10px;
-  font-weight: 600;
+.focus-detail-mercati-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.focus-detail-mercati-head ion-card-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ion-text-color);
+}
+.focus-detail-mercati-header .focus-detail-subtitle {
+  margin-top: 8px;
+}
+.focus-detail-refresh-btn {
+  --padding-start: 10px;
+  --padding-end: 10px;
+  margin: 0;
+  min-height: 44px;
+  min-width: 44px;
+}
+.focus-detail-refresh-icon {
+  font-size: 1.45rem;
+  color: var(--ion-color-primary);
+}
+.focus-detail-refresh-spinner {
+  width: 22px;
+  height: 22px;
+  color: var(--ion-color-primary);
 }
 .focus-markets-wrap {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
+}
+.focus-market-section {
+  margin: 0;
 }
 .focus-market-section-title {
-  font-size: 0.9rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: var(--ion-color-primary);
-  margin: 0 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--ion-color-primary-tint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ion-color-medium);
+  margin: 0 0 12px;
+  padding: 0 0 0 12px;
+  border-left: 3px solid var(--ion-color-primary);
+  line-height: 1.35;
 }
 .focus-market-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .focus-market-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background: var(--ion-item-background, var(--ion-background-color));
-  border-radius: 10px;
-  border: 1px solid var(--ion-color-light-shade);
-  font-size: 0.9rem;
+  gap: 12px 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ion-color-step-100, rgba(255, 255, 255, 0.08));
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.045) 0%,
+    rgba(255, 255, 255, 0.012) 100%
+  );
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.focus-market-row:active {
+  opacity: 0.92;
+}
+.focus-market-row--rank1 {
+  border-color: rgba(234, 179, 8, 0.35);
+  background: linear-gradient(
+    165deg,
+    rgba(234, 179, 8, 0.12) 0%,
+    rgba(255, 255, 255, 0.02) 55%
+  );
+}
+.focus-market-row--rank2 {
+  border-color: rgba(156, 163, 175, 0.35);
+  background: linear-gradient(
+    165deg,
+    rgba(156, 163, 175, 0.1) 0%,
+    rgba(255, 255, 255, 0.02) 55%
+  );
+}
+.focus-market-row--rank3 {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: linear-gradient(
+    165deg,
+    rgba(180, 83, 9, 0.1) 0%,
+    rgba(255, 255, 255, 0.02) 55%
+  );
 }
 .focus-market-rank {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--ion-color-primary);
-  color: var(--ion-color-primary-contrast);
-  font-size: 0.8rem;
-  font-weight: 700;
-  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border-radius: 10px;
+  background: var(--ion-color-step-150, rgba(120, 120, 120, 0.35));
+  color: var(--ion-text-color);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.focus-market-row--rank1 .focus-market-rank {
+  background: linear-gradient(145deg, #facc15, #ca8a04);
+  color: #1c1917;
+}
+.focus-market-row--rank2 .focus-market-rank {
+  background: linear-gradient(145deg, #e5e7eb, #9ca3af);
+  color: #111827;
+}
+.focus-market-row--rank3 .focus-market-rank {
+  background: linear-gradient(145deg, #d97706, #9a3412);
+  color: #fff7ed;
 }
 .focus-market-city {
   font-weight: 600;
-  min-width: 100px;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
   color: var(--ion-text-color);
+  min-width: 0;
 }
 .focus-market-prices {
-  margin-left: auto;
-  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.focus-market-price-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.72rem;
+}
+.focus-market-p-label {
   color: var(--ion-color-medium);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 28px;
+  text-align: right;
+}
+.focus-market-p-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ion-text-color);
+  opacity: 0.95;
 }
 .focus-market-empty {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--ion-color-medium);
   font-style: italic;
-  margin: 8px 0;
-  padding: 12px;
+  margin: 4px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--ion-color-step-150, rgba(255, 255, 255, 0.12));
+  text-align: center;
+}
+.focus-market-best-banner {
+  margin-bottom: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ion-color-step-100, rgba(255, 255, 255, 0.08));
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--ion-color-primary) 20%, transparent) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+}
+.focus-market-best-banner p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ion-text-color);
+}
+.focus-market-best-banner p + p {
+  margin-top: 8px;
+}
+.focus-market-best-banner strong {
+  color: var(--ion-color-primary-tint, var(--ion-color-primary));
+  font-weight: 700;
 }

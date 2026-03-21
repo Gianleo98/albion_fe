@@ -34,7 +34,19 @@ import {
   IonAlert,
   IonToggle,
 } from '@ionic/react';
-import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel, bookmarkOutline, trashOutline, listOutline } from 'ionicons/icons';
+import {
+  arrowDownOutline,
+  arrowUpOutline,
+  searchOutline,
+  funnelOutline,
+  funnel,
+  pricetagOutline,
+  pricetag,
+  bookmarkOutline,
+  trashOutline,
+  listOutline,
+  saveOutline,
+} from 'ionicons/icons';
 import {
   getCraftingProfits,
   getCraftingProfitSortOptions,
@@ -47,11 +59,20 @@ import {
 } from '../services/api';
 import type { AvailabilityLevelCode, CraftingProfitResponse, SavedCraftingItemResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
+import { StockAvailabilityIcon } from '../components/StockAvailabilityIcon';
 import { formatYieldPercent, yieldPercentFromProfitAndCost } from '../utils/yieldPercent';
 import './CraftingPage.css';
 
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
+
+/** Profitto / delta: mostra +/− e 0 numerico (formatPrice darebbe "—" per ≤0). */
+const formatProfitWithSign = (n: number): string => {
+  if (!Number.isFinite(n)) return '—';
+  if (n === 0) return '0';
+  const abs = Math.abs(Math.round(n)).toLocaleString('it-IT');
+  return n < 0 ? `-${abs}` : `+${abs}`;
+};
 
 const resPriceClass = (level?: 'below' | 'equal' | 'above') =>
   `cp-res-price cp-res-price--${level ?? 'equal'}`;
@@ -74,7 +95,7 @@ const cleanItemName = (itemId: string): string => {
 
 type ListMode = 'all' | 'saved';
 
-const CraftingPage: React.FC = () => {
+const BlackMarketPage: React.FC = () => {
   const [items, setItems] = useState<CraftingProfitResponse[]>([]);
   const [savedItems, setSavedItems] = useState<SavedCraftingItemResponse[]>([]);
   const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
@@ -141,7 +162,7 @@ const CraftingPage: React.FC = () => {
       } catch {
         setItems((prev) => (reset ? [] : prev));
         setHasMore(false);
-        if (reset) setError('Impossibile caricare i dati del crafting.');
+        if (reset) setError('Impossibile caricare i dati del Black Market.');
       } finally {
         setLoading(false);
       }
@@ -466,7 +487,7 @@ const CraftingPage: React.FC = () => {
 
                         <div slot="end" className="cp-profit-col">
                           <span className={`cp-profit ${item.profit >= 0 ? 'positive' : 'negative'}`}>
-                            {item.profit >= 0 ? '+' : ''}{formatPrice(item.profit)}
+                            {formatProfitWithSign(item.profit)}
                           </span>
                           <span className={`cp-yield-pct ${item.profit >= 0 ? 'positive' : 'negative'}`}>
                             {formatYieldPercent(item.profitPercentage)}
@@ -511,6 +532,13 @@ const CraftingPage: React.FC = () => {
               {savedItems.map((s) => {
                 const profitShow = s.currentDataMissing ? s.savedProfit : s.currentProfit;
                 const costShow = s.currentDataMissing ? s.savedEffectiveCost : s.currentEffectiveCost;
+                const sellNeedsSetup = s.sellAvailability === 'NONE' || !s.sellAvailability;
+                const listed = !!s.listedForSale;
+                const sellTagTitle = listed
+                  ? 'In vendita'
+                  : sellNeedsSetup
+                    ? 'Vendita: da impostare'
+                    : `Non in vendita (${s.sellAvailabilityLabel ?? s.sellAvailability ?? '—'})`;
                 return (
                 <IonItemSliding key={s.itemId} ref={(el) => { slidingRefs.current[s.itemId] = el; }}>
                   <IonItem className="cp-item" button onClick={() => openDetail(s.itemId)}>
@@ -527,26 +555,55 @@ const CraftingPage: React.FC = () => {
                       )}
                     </div>
                     <IonLabel>
-                      <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
-                      <div className="cp-saved-chips">
-                        {s.listedForSale && <span className="cp-avail-chip cp-avail-chip--listed">In vendita</span>}
-                        {(s.sellAvailability === 'NONE' || !s.sellAvailability) && (
-                          <span className="cp-avail-chip cp-avail-chip--warn">Vendita: da impostare</span>
-                        )}
-                        {s.sellAvailability && s.sellAvailability !== 'NONE' && (
-                          <span className="cp-avail-chip">Vendita: {s.sellAvailabilityLabel ?? s.sellAvailability}</span>
-                        )}
-                        <span className="cp-avail-chip">Stock: {s.stockAvailabilityLabel ?? '—'}</span>
-                      </div>
-                      <div className="cp-meta">
+                      <h3 className="cp-item-name" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span title={sellTagTitle} style={{ display: 'inline-flex', lineHeight: 0 }}>
+                          <IonIcon
+                            icon={listed ? pricetag : pricetagOutline}
+                            style={{
+                              fontSize: '1.05rem',
+                              flexShrink: 0,
+                              color: 'var(--ion-color-success-tint, #2dd36f)',
+                              opacity: listed ? 1 : 0.72,
+                            }}
+                            aria-hidden
+                          />
+                        </span>
+                        <span style={{ display: 'inline-flex', lineHeight: 0 }}>
+                          <StockAvailabilityIcon
+                            variant="titleRow"
+                            level={s.stockAvailability}
+                            label={s.stockAvailabilityLabel}
+                          />
+                        </span>
+                        {cleanItemName(s.itemId)}
+                      </h3>
+                      <div className="cp-meta cp-saved-live-meta">
                         {s.currentDataMissing ? (
                           <span className="cp-rrr">Non in elenco profit — dati al salvataggio</span>
                         ) : (
                           <>
+                            <span
+                              className="cp-rrr"
+                              title="Profitto craft → vendita BM con i prezzi attuali."
+                            >
+                              Profitto vendita ora: {formatProfitWithSign(s.currentProfit)}
+                            </span>
+                            {s.profitDiff !== 0 && (
+                              <span
+                                className={
+                                  s.profitDiff >= 0
+                                    ? 'cp-saved-profit-vs-save cp-saved-profit-vs-save--up'
+                                    : 'cp-saved-profit-vs-save cp-saved-profit-vs-save--down'
+                                }
+                                title="Variazione del profitto rispetto al valore al salvataggio."
+                              >
+                                Rispetto al salvataggio: {formatProfitWithSign(s.profitDiff)}
+                              </span>
+                            )}
                             <span className="cp-rrr">BM ora {formatPrice(s.currentBmPrice)}</span>
                             {s.bmPriceDiff !== 0 && (
                               <span className={s.bmPriceDiff >= 0 ? 'cp-profit positive' : 'cp-profit negative'}>
-                                {s.bmPriceDiff >= 0 ? '+' : ''}{formatPrice(s.bmPriceDiff)}
+                                {formatProfitWithSign(s.bmPriceDiff)}
                               </span>
                             )}
                           </>
@@ -555,11 +612,13 @@ const CraftingPage: React.FC = () => {
                     </IonLabel>
                     <div slot="end" className="cp-profit-col">
                       <span className={`cp-profit ${profitShow >= 0 ? 'positive' : 'negative'}`}>
-                        {profitShow >= 0 ? '+' : ''}{formatPrice(profitShow)}
+                        {formatProfitWithSign(profitShow)}
                       </span>
-                      <span className={`cp-yield-pct ${profitShow >= 0 ? 'positive' : 'negative'}`}>
-                        {yieldPercentFromProfitAndCost(profitShow, costShow)}
-                      </span>
+                      {costShow > 0 && (
+                        <span className={`cp-yield-pct ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                          {yieldPercentFromProfitAndCost(profitShow, costShow)}
+                        </span>
+                      )}
                       <span className="cp-bm-price" style={{ fontSize: '0.75rem' }}>
                         {s.currentDataMissing ? 'snap' : 'oggi'}
                       </span>
@@ -659,43 +718,52 @@ const CraftingPage: React.FC = () => {
                           </div>
                           {!detailItem.currentDataMissing && detailItem.bmPriceDiff !== 0 && (
                             <div className={`comparison-diff ${detailItem.bmPriceDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                              {detailItem.bmPriceDiff > 0 ? '+' : ''}
-                              {formatPrice(detailItem.bmPriceDiff)} vs salvataggio
+                              {formatProfitWithSign(detailItem.bmPriceDiff)} vs salvataggio
                             </div>
                           )}
                         </div>
                         <div className="comparison-row">
-                          <div className="comparison-metric-name">Profitto crafting → BM</div>
+                          <div className="comparison-metric-name">Profitto verso BM</div>
                           <p className="detail-metric-hint">Dopo costo materiali e bonus RRR.</p>
                           <div className="comparison-columns">
                             <div className="comparison-col">
                               <span className="comparison-col-label">Al salvataggio</span>
                               <span className="comparison-col-value">
-                                {detailItem.savedProfit >= 0 ? '+' : ''}
-                                {formatPrice(detailItem.savedProfit)}
+                                {formatProfitWithSign(detailItem.savedProfit)}
                               </span>
-                              <span className="comparison-yield-pct">
-                                Rend. {yieldPercentFromProfitAndCost(detailItem.savedProfit, detailItem.savedEffectiveCost)}
-                              </span>
+                              {detailItem.savedEffectiveCost > 0 && (
+                                <span className="comparison-yield-pct">
+                                  Rend.{' '}
+                                  {yieldPercentFromProfitAndCost(
+                                    detailItem.savedProfit,
+                                    detailItem.savedEffectiveCost
+                                  )}
+                                </span>
+                              )}
                             </div>
                             <div className="comparison-col">
                               <span className="comparison-col-label">
                                 {detailItem.currentDataMissing ? 'Ora (lista)' : 'Ora aggiornato'}
                               </span>
                               <span className="comparison-col-value comparison-value-now">
-                                {detailItem.currentDataMissing ? '—' : `${detailItem.currentProfit >= 0 ? '+' : ''}${formatPrice(detailItem.currentProfit)}`}
+                                {detailItem.currentDataMissing
+                                  ? '—'
+                                  : formatProfitWithSign(detailItem.currentProfit)}
                               </span>
-                              {!detailItem.currentDataMissing && (
+                              {!detailItem.currentDataMissing && detailItem.currentEffectiveCost > 0 && (
                                 <span className="comparison-yield-pct">
-                                  Rend. {yieldPercentFromProfitAndCost(detailItem.currentProfit, detailItem.currentEffectiveCost)}
+                                  Rend.{' '}
+                                  {yieldPercentFromProfitAndCost(
+                                    detailItem.currentProfit,
+                                    detailItem.currentEffectiveCost
+                                  )}
                                 </span>
                               )}
                             </div>
                           </div>
                           {!detailItem.currentDataMissing && detailItem.profitDiff !== 0 && (
                             <div className={`comparison-diff ${detailItem.profitDiff > 0 ? 'diff-up' : 'diff-down'}`}>
-                              {detailItem.profitDiff > 0 ? '+' : ''}
-                              {formatPrice(detailItem.profitDiff)} vs salvataggio
+                              {formatProfitWithSign(detailItem.profitDiff)} vs salvataggio
                             </div>
                           )}
                         </div>
@@ -703,41 +771,75 @@ const CraftingPage: React.FC = () => {
                     </IonCardContent>
                   </IonCard>
 
-                  <IonCard className="craft-detail-card detail-tracking-card">
-                    <IonCardHeader>
-                      <IonCardTitle>Le tue note (mercato personale)</IonCardTitle>
-                      <p className="comparison-saved-at">
-                        Usa &quot;Non impostato&quot; per gli item da controllare: compaiono in cima alla lista salvati.
+                  <IonCard className="craft-detail-card detail-tracking-card notes-tracking-card">
+                    <IonCardContent className="notes-tracking">
+                      <div className="notes-tracking__head">
+                        <h3 className="notes-tracking__title">Le tue note</h3>
+                        <IonButton
+                          fill="clear"
+                          className="notes-tracking__save-btn"
+                          onClick={() => void saveCraftingTracking()}
+                          disabled={trackSaving}
+                          aria-label="Salva note"
+                          title="Salva note"
+                        >
+                          {trackSaving ? (
+                            <IonSpinner name="crescent" className="notes-tracking__save-spinner" />
+                          ) : (
+                            <IonIcon icon={saveOutline} className="notes-tracking__save-icon" />
+                          )}
+                        </IonButton>
+                      </div>
+                      <p className="notes-tracking__hint">
+                        Mercato personale: con &quot;non impostato&quot; l&apos;item sale in cima ai salvati da controllare.
                       </p>
-                    </IonCardHeader>
-                    <IonCardContent>
-                      <IonItem lines="none">
-                        <IonLabel>Attualmente in vendita</IonLabel>
-                        <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
-                      </IonItem>
-                      <IonItem lines="none">
-                        <IonLabel position="stacked">Disponibilità vendita (ordini)</IonLabel>
-                        <IonSelect value={trSell} onIonChange={(e) => setTrSell((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
-                          {AVAIL_OPTIONS.map((o) => (
-                            <IonSelectOption key={o.value} value={o.value}>
-                              {o.label}
-                            </IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </IonItem>
-                      <IonItem lines="none">
-                        <IonLabel position="stacked">Stock / disponibilità magazzino</IonLabel>
-                        <IonSelect value={trStock} onIonChange={(e) => setTrStock((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
-                          {AVAIL_OPTIONS.map((o) => (
-                            <IonSelectOption key={o.value} value={o.value}>
-                              {o.label}
-                            </IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </IonItem>
-                      <IonButton expand="block" onClick={() => void saveCraftingTracking()} disabled={trackSaving}>
-                        {trackSaving ? 'Salvataggio…' : 'Salva note'}
-                      </IonButton>
+                      <div className="notes-tracking__shell">
+                        <div className="notes-tracking__toggle-row">
+                          <span className="notes-tracking__label">In vendita</span>
+                          <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
+                        </div>
+                        <div className="notes-tracking__field">
+                          <span className="notes-tracking__sublabel">Richiesta ordini</span>
+                          <IonItem lines="none" className="notes-tracking__item">
+                            <IonSelect
+                              value={trSell}
+                              onIonChange={(e) => setTrSell((e.detail.value as AvailabilityLevelCode) ?? 'NONE')}
+                              interface="action-sheet"
+                              interfaceOptions={{ header: 'Richiesta ordini' }}
+                            >
+                              {AVAIL_OPTIONS.map((o) => (
+                                <IonSelectOption key={o.value} value={o.value}>
+                                  {o.label}
+                                </IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </IonItem>
+                        </div>
+                        <div className="notes-tracking__field">
+                          <div className="notes-tracking__sublabel notes-tracking__sublabel--with-stock-icon">
+                            <StockAvailabilityIcon
+                              variant="inline"
+                              level={trStock}
+                              label={AVAIL_OPTIONS.find((o) => o.value === trStock)?.label}
+                            />
+                            <span className="notes-tracking__sublabel-text">Stock</span>
+                          </div>
+                          <IonItem lines="none" className="notes-tracking__item">
+                            <IonSelect
+                              value={trStock}
+                              onIonChange={(e) => setTrStock((e.detail.value as AvailabilityLevelCode) ?? 'NONE')}
+                              interface="action-sheet"
+                              interfaceOptions={{ header: 'Stock' }}
+                            >
+                              {AVAIL_OPTIONS.map((o) => (
+                                <IonSelectOption key={o.value} value={o.value}>
+                                  {o.label}
+                                </IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </IonItem>
+                        </div>
+                      </div>
                     </IonCardContent>
                   </IonCard>
                 </>
@@ -750,4 +852,4 @@ const CraftingPage: React.FC = () => {
   );
 };
 
-export default CraftingPage;
+export default BlackMarketPage;

@@ -50,7 +50,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
   const [updatingCrafting, setUpdatingCrafting] = useState(false);
   const [updatingRoyalContinent, setUpdatingRoyalContinent] = useState(false);
   const [updatingFocus, setUpdatingFocus] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'materials' | 'blackmarket' | 'crafting' | 'royal' | 'focus' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    'materials' | 'blackmarket' | 'craftingProfit' | 'royal' | 'focus' | null
+  >(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [craftingBonuses, setCraftingBonuses] = useState<CraftingBonusResponse | null>(null);
   const [bonusCategories, setBonusCategories] = useState<string[]>([]);
@@ -89,7 +91,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
       const updated = await updateCraftingSettings(premium);
       setCraftingSettings(updated);
       presentToast({
-        message: `Tassa vendita: ${premium ? '4%' : '8%'}. Esegui "Ricalcola Crafting" per applicare.`,
+        message: `Tassa vendita: ${premium ? '4%' : '8%'}. Esegui «Ricalcola Black Market» (profitti) per applicare.`,
         duration: 2800,
         color: 'success',
         position: 'top',
@@ -187,7 +189,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
       onCraftingUpdated?.();
     } catch {
       presentToast({
-        message: 'Errore durante il calcolo del crafting profit.',
+        message: 'Errore durante il ricalcolo dei profitti Black Market.',
         duration: 2500,
         color: 'danger',
         position: 'top',
@@ -310,13 +312,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
             disabled={updatingCrafting}
             onClick={() => {
               setPopoverOpen(false);
-              setConfirmAction('crafting');
+              setConfirmAction('craftingProfit');
             }}
           >
             {updatingCrafting
               ? <IonSpinner name="dots" slot="start" />
               : <IonIcon icon={hammerOutline} slot="start" />}
-            <IonLabel>Ricalcola Crafting</IonLabel>
+            <IonLabel>Ricalcola Black Market</IonLabel>
           </IonItem>
           <IonItem
             button
@@ -476,10 +478,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
       />
 
       <IonAlert
-        isOpen={confirmAction === 'crafting'}
+        isOpen={confirmAction === 'craftingProfit'}
         onDidDismiss={() => setConfirmAction(null)}
-        header="Ricalcola Crafting"
-        message="Vuoi forzare il ricalcolo dei profitti di crafting?"
+        header="Ricalcola Black Market"
+        message="Vuoi forzare il ricalcolo dei profitti (craft → vendita BM) sulla tab Black Market?"
         buttons={[
           { text: 'Annulla', role: 'cancel' },
           { text: 'Ricalcola', handler: handleUpdateCrafting },

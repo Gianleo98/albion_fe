@@ -10,12 +10,13 @@ import {
   setupIonicReact,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { homeOutline, hammerOutline, flashOutline, swapHorizontalOutline } from 'ionicons/icons';
+import { homeOutline, storefrontOutline, flashOutline, swapHorizontalOutline } from 'ionicons/icons';
 
 import HomePage from './pages/HomePage';
-import CraftingPage from './pages/CraftingPage';
+import BlackMarketPage from './pages/BlackMarketPage';
 import FocusPage from './pages/FocusPage';
 import FlipPage from './pages/FlipPage';
+import { NativeFlipAlerts } from './components/NativeFlipAlerts';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -41,14 +42,18 @@ setupIonicReact();
 
 const App: React.FC = () => (
   <IonApp>
+    <NativeFlipAlerts />
     <IonReactRouter>
       <IonTabs>
         <IonRouterOutlet>
           <Route exact path="/home">
             <HomePage />
           </Route>
+          <Route exact path="/blackmarket">
+            <BlackMarketPage />
+          </Route>
           <Route exact path="/crafting">
-            <CraftingPage />
+            <Redirect to="/blackmarket" />
           </Route>
           <Route exact path="/focus">
             <FocusPage />
@@ -66,9 +71,9 @@ const App: React.FC = () => (
             <IonIcon icon={homeOutline} />
             <IonLabel>Home</IonLabel>
           </IonTabButton>
-          <IonTabButton tab="crafting" href="/crafting">
-            <IonIcon icon={hammerOutline} />
-            <IonLabel>Crafting</IonLabel>
+          <IonTabButton tab="blackmarket" href="/blackmarket">
+            <IonIcon icon={storefrontOutline} />
+            <IonLabel>Black Market</IonLabel>
           </IonTabButton>
           <IonTabButton tab="focus" href="/focus">
             <IonIcon icon={flashOutline} />

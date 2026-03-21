@@ -19,6 +19,7 @@ import {
 } from '@ionic/react';
 import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel } from 'ionicons/icons';
 import { getFlipProfits, getFlipProfitSortOptions } from '../services/api';
+import { refreshFlipHighProfitAlerts } from '../services/flipHighProfitNotify';
 import type { FlipProfitResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
 import './CraftingPage.css';
@@ -127,6 +128,7 @@ const FlipPage: React.FC = () => {
   const handleRefresh = async (e: CustomEvent) => {
     setLoading(true);
     await fetchItems(0, true);
+    void refreshFlipHighProfitAlerts();
     (e.target as HTMLIonRefresherElement).complete();
   };
 
@@ -155,7 +157,14 @@ const FlipPage: React.FC = () => {
 
   return (
     <IonPage>
-      <AppHeader onFlipUpdated={() => { setLoading(true); fetchItems(0, true); }} />
+      <AppHeader
+        onFlipUpdated={() => {
+          setLoading(true);
+          void fetchItems(0, true).finally(() => {
+            void refreshFlipHighProfitAlerts();
+          });
+        }}
+      />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />

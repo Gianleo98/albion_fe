@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
   IonContent,
   IonPage,
@@ -42,9 +42,13 @@ import {
   funnel,
   flashOutline,
   flash,
+  pricetagOutline,
+  pricetag,
   bookmarkOutline,
   trashOutline,
   listOutline,
+  refreshOutline,
+  saveOutline,
 } from 'ionicons/icons';
 import {
   getFocusProfits,
@@ -59,6 +63,7 @@ import {
 } from '../services/api';
 import type { AvailabilityLevelCode, FocusProfitResponse, RoyalMarketsResponse, SavedFocusItemResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
+import { StockAvailabilityIcon } from '../components/StockAvailabilityIcon';
 import { formatYieldPercent, yieldPercentFromProfitAndCost } from '../utils/yieldPercent';
 import './CraftingPage.css';
 
@@ -98,6 +103,34 @@ const cleanItemName = (itemId: string): string => {
   name = name.replace(/^2H_/, '').replace(/^MAIN_/, '').replace(/^OFF_/, '');
   return name.replaceAll('_', ' ').replaceAll(/\b\w/g, (c) => c.toUpperCase());
 };
+
+function focusMarketRankModifier(i: number): string {
+  if (i === 0) return 'focus-market-row--rank1';
+  if (i === 1) return 'focus-market-row--rank2';
+  if (i === 2) return 'focus-market-row--rank3';
+  return '';
+}
+
+function savedItemMatchesFilters(
+  s: SavedFocusItemResponse,
+  nameQ: string,
+  filterFocusMode: boolean,
+  onlyMaterialsUnderAvg: boolean
+): boolean {
+  const q = nameQ.trim().toLowerCase();
+  if (q) {
+    const nm = cleanItemName(s.itemId).toLowerCase();
+    if (!s.itemId.toLowerCase().includes(q) && !nm.includes(q)) return false;
+  }
+  const legacyOrFocus = s.savedWithFocus !== false;
+  if (filterFocusMode) {
+    if (!legacyOrFocus) return false;
+  } else if (legacyOrFocus) {
+    return false;
+  }
+  if (onlyMaterialsUnderAvg && s.materialsUnderAvg !== true) return false;
+  return true;
+}
 
 type ListMode = 'all' | 'saved';
 
@@ -154,9 +187,10 @@ const FocusPage: React.FC = () => {
       didMountRef.current = true;
       return;
     }
+    if (listMode !== 'all') return;
     setLoading(true);
     fetchItems(0, true);
-  }, [nameSearch, materialsUnderAvg, scenarioWithFocus]);
+  }, [nameSearch, materialsUnderAvg, scenarioWithFocus, listMode]);
 
   const fetchItems = useCallback(
     async (
@@ -214,6 +248,14 @@ const FocusPage: React.FC = () => {
     }
   }, []);
 
+  const filteredSavedItems = useMemo(
+    () =>
+      savedItems.filter((s) =>
+        savedItemMatchesFilters(s, nameSearch, scenarioWithFocus, materialsUnderAvg)
+      ),
+    [savedItems, nameSearch, scenarioWithFocus, materialsUnderAvg]
+  );
+
   const fetchInitial = async () => {
     try {
       setError(null);
@@ -264,8 +306,9 @@ const FocusPage: React.FC = () => {
         }
         presentToast({ message: 'Rimosso dai salvati.', duration: 2000, color: 'medium', position: 'top' });
       } else {
-        await saveFocusItem(itemId);
+        await saveFocusItem(itemId, scenarioWithFocus);
         setSavedItemIds((prev) => new Set(prev).add(itemId));
+        void fetchSavedList();
         presentToast({ message: 'Aggiunto ai salvati.', duration: 2000, color: 'success', position: 'top' });
       }
     } catch {
@@ -332,6 +375,28 @@ const FocusPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!detailItemId) return undefined;
+    let cancelled = false;
+    setRoyalMarketsLoading(true);
+    setRoyalMarkets(null);
+    getFocusRoyalMarkets(detailItemId)
+      .then((data) => {
+        if (!cancelled) setRoyalMarkets(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          presentToast({ message: 'Errore nel caricamento mercati.', duration: 2000, color: 'danger', position: 'top' });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRoyalMarketsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [detailItemId, presentToast]);
+
   const handleRefresh = async (event: CustomEvent) => {
     setError(null);
     await fetchSavedIds();
@@ -363,9 +428,35 @@ const FocusPage: React.FC = () => {
     fetchItems(0, true, sortBy, next);
   };
 
+  const flashFilterTitle =
+    listMode === 'saved'
+      ? scenarioWithFocus
+        ? 'Filtro: solo salvati con focus. Tocca per vedere solo senza focus.'
+        : 'Filtro: solo salvati senza focus. Tocca per vedere solo con focus.'
+      : scenarioWithFocus
+        ? 'Calcolo con focus (attivo). Tocca per elenco profittevole senza focus.'
+        : 'Elenco senza focus. Tocca per tornare al calcolo con focus.';
+
+  const flashFilterAria =
+    listMode === 'saved'
+      ? scenarioWithFocus
+        ? 'Filtra salvati con focus'
+        : 'Filtra salvati senza focus'
+      : scenarioWithFocus
+        ? 'Passa a calcolo senza focus'
+        : 'Passa a calcolo con focus';
+
   return (
     <IonPage>
-      <AppHeader onFocusUpdated={() => { setLoading(true); fetchItems(0, true); }} />
+      <AppHeader
+        onFocusUpdated={() => {
+          if (listMode === 'all') {
+            setLoading(true);
+            void fetchItems(0, true);
+          }
+          void fetchSavedList();
+        }}
+      />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
@@ -385,49 +476,53 @@ const FocusPage: React.FC = () => {
             </IonSegmentButton>
           </IonSegment>
 
+          {(listMode === 'all' || listMode === 'saved') && (
+            <div className="cp-search-row">
+              <IonItem className="cp-search-item" lines="none">
+                <IonIcon icon={searchOutline} slot="start" />
+                <IonInput
+                  value={searchInput}
+                  onIonInput={(e) => setSearchInput(e.detail.value ?? '')}
+                  placeholder="Cerca per nome..."
+                />
+              </IonItem>
+              <button
+                type="button"
+                className={`cp-filter-below-btn ${scenarioWithFocus ? 'active' : ''}`}
+                onClick={() => setScenarioWithFocus((prev) => !prev)}
+                title={flashFilterTitle}
+                aria-label={flashFilterAria}
+              >
+                <IonIcon icon={scenarioWithFocus ? flash : flashOutline} />
+              </button>
+              <button
+                type="button"
+                className={`cp-filter-below-btn ${materialsUnderAvg ? 'active' : ''}`}
+                onClick={() => {
+                  setSearchInput('');
+                  setNameSearch('');
+                  setMaterialsUnderAvg((prev) => !prev);
+                }}
+                title="Solo item con materiali sotto media 7gg"
+                aria-label="Filtra: materiali sotto media"
+              >
+                <IonIcon icon={materialsUnderAvg ? funnel : funnelOutline} />
+              </button>
+            </div>
+          )}
+
+          {(listMode === 'all' || listMode === 'saved') && (
+            <p
+              className="cp-count"
+              style={{ margin: '6px 12px 4px', fontSize: '0.78rem', opacity: 0.72, lineHeight: 1.35 }}
+            >
+              Nota: il profitto <strong>vendita</strong> (sell order) include già tassa mercato e{' '}
+              <strong>2,5% setup fee</strong> sul listino; lo scenario <strong>buy order</strong> senza setup fee.
+            </p>
+          )}
+
           {listMode === 'all' && (
           <>
-          <div className="cp-search-row">
-            <IonItem className="cp-search-item" lines="none">
-              <IonIcon icon={searchOutline} slot="start" />
-              <IonInput
-                value={searchInput}
-                onIonInput={(e) => setSearchInput(e.detail.value ?? '')}
-                placeholder="Cerca per nome..."
-              />
-            </IonItem>
-            <button
-              type="button"
-              className={`cp-filter-below-btn ${scenarioWithFocus ? 'active' : ''}`}
-              onClick={() => setScenarioWithFocus((prev) => !prev)}
-              title={
-                scenarioWithFocus
-                  ? 'Calcolo con focus (attivo). Tocca per elenco profittevole senza focus.'
-                  : 'Elenco senza focus. Tocca per tornare al calcolo con focus.'
-              }
-              aria-label={
-                scenarioWithFocus
-                  ? 'Passa a calcolo senza focus'
-                  : 'Passa a calcolo con focus'
-              }
-            >
-              <IonIcon icon={scenarioWithFocus ? flash : flashOutline} />
-            </button>
-            <button
-              type="button"
-              className={`cp-filter-below-btn ${materialsUnderAvg ? 'active' : ''}`}
-              onClick={() => {
-                setSearchInput('');
-                setNameSearch('');
-                setMaterialsUnderAvg((prev) => !prev);
-              }}
-              title="Solo item con materiali sotto media 7gg"
-              aria-label="Filtra: materiali sotto media"
-            >
-              <IonIcon icon={materialsUnderAvg ? funnel : funnelOutline} />
-            </button>
-          </div>
-
           <div className="cp-toolbar">
             {sortOptions.length > 0 && (
               <IonItem className="cp-sort-selector" lines="none">
@@ -455,14 +550,6 @@ const FocusPage: React.FC = () => {
               <IonIcon icon={sortDirection === 'DESC' ? arrowDownOutline : arrowUpOutline} />
             </IonButton>
           </div>
-
-          <p
-            className="cp-count"
-            style={{ marginTop: 6, marginBottom: 4, fontSize: '0.78rem', opacity: 0.72, lineHeight: 1.35 }}
-          >
-            Nota: il profitto <strong>vendita</strong> (sell order) include già tassa mercato e{' '}
-            <strong>2,5% setup fee</strong> sul listino; lo scenario <strong>buy order</strong> senza setup fee.
-          </p>
 
           {!loading && listMode === 'all' && totalElements > 0 && (
             <p className="cp-count">
@@ -620,15 +707,20 @@ const FocusPage: React.FC = () => {
             </div>
           )}
 
-          {listMode === 'saved' && !loading && savedItems.length > 0 && (
+          {listMode === 'saved' && !loading && savedItems.length > 0 && filteredSavedItems.length > 0 && (
             <>
-              <p className="cp-count" style={{ marginTop: 4 }}>
-                Ordine: prima vendita &quot;non impostata&quot;, poi profitto vendita. Tocca per dettaglio.
-              </p>
             <IonList className="cp-list">
-              {savedItems.map((s) => {
+              {filteredSavedItems.map((s) => {
                 const profitShow = s.currentDataMissing ? s.savedProfitSell : s.currentProfitSell;
                 const costShow = s.currentDataMissing ? s.savedEffectiveCost : s.currentEffectiveCost;
+                const savedWithFocus = s.savedWithFocus !== false;
+                const sellNeedsSetup = s.sellAvailability === 'NONE' || !s.sellAvailability;
+                const listed = !!s.listedForSale;
+                const sellTagTitle = listed
+                  ? 'In vendita'
+                  : sellNeedsSetup
+                    ? 'Vendita: da impostare'
+                    : `Non in vendita (${s.sellAvailabilityLabel ?? s.sellAvailability ?? '—'})`;
                 return (
                 <IonItemSliding key={s.itemId} ref={(el) => { slidingRefs.current[s.itemId] = el; }}>
                   <IonItem className="cp-item" button onClick={() => openDetailFromSaved(s.itemId)}>
@@ -640,26 +732,115 @@ const FocusPage: React.FC = () => {
                       )}
                     </div>
                     <IonLabel>
-                      <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
-                      <div className="cp-saved-chips">
-                        {s.listedForSale && <span className="cp-avail-chip cp-avail-chip--listed">In vendita</span>}
-                        {(s.sellAvailability === 'NONE' || !s.sellAvailability) && (
-                          <span className="cp-avail-chip cp-avail-chip--warn">Vendita: da impostare</span>
-                        )}
-                        {s.sellAvailability && s.sellAvailability !== 'NONE' && (
-                          <span className="cp-avail-chip">Vendita: {s.sellAvailabilityLabel ?? s.sellAvailability}</span>
-                        )}
-                        <span className="cp-avail-chip">Stock: {s.stockAvailabilityLabel ?? '—'}</span>
-                      </div>
-                      <div className="cp-meta">
+                      <h3 className="cp-item-name" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span
+                          title={savedWithFocus ? 'Salvato con calcolo focus' : 'Salvato senza focus'}
+                          style={{ display: 'inline-flex', lineHeight: 0 }}
+                        >
+                          <IonIcon
+                            icon={savedWithFocus ? flash : flashOutline}
+                            style={{
+                              fontSize: '1.05rem',
+                              flexShrink: 0,
+                              color: savedWithFocus ? 'var(--ion-color-warning-tint, #ffc409)' : 'var(--ion-color-medium)',
+                              opacity: savedWithFocus ? 1 : 0.65,
+                            }}
+                            aria-hidden
+                          />
+                        </span>
+                        <span title={sellTagTitle} style={{ display: 'inline-flex', lineHeight: 0 }}>
+                          <IonIcon
+                            icon={listed ? pricetag : pricetagOutline}
+                            style={{
+                              fontSize: '1.05rem',
+                              flexShrink: 0,
+                              color: 'var(--ion-color-success-tint, #2dd36f)',
+                              opacity: listed ? 1 : 0.72,
+                            }}
+                            aria-hidden
+                          />
+                        </span>
+                        <span style={{ display: 'inline-flex', lineHeight: 0 }}>
+                          <StockAvailabilityIcon
+                            variant="titleRow"
+                            level={s.stockAvailability}
+                            label={s.stockAvailabilityLabel}
+                          />
+                        </span>
+                        {cleanItemName(s.itemId)}
+                      </h3>
+                      {s.primaryResourceId && (
+                        <div className="cp-resources">
+                          {s.primaryResourceIconUrl && (
+                            <img src={s.primaryResourceIconUrl} alt="" className="cp-res-icon" />
+                          )}
+                          <span className="cp-res-qty">{s.primaryResourceQty}x</span>
+                          <span className={resPriceClass(s.primaryResourcePriceLevel)}>
+                            {formatPrice(s.primaryResourcePrice)}
+                          </span>
+                          {s.secondaryResourceId && (
+                            <>
+                              <span className="cp-res-sep">+</span>
+                              {s.secondaryResourceIconUrl && (
+                                <img src={s.secondaryResourceIconUrl} alt="" className="cp-res-icon" />
+                              )}
+                              <span className="cp-res-qty">{s.secondaryResourceQty}x</span>
+                              <span className={resPriceClass(s.secondaryResourcePriceLevel)}>
+                                {formatPrice(s.secondaryResourcePrice)}
+                              </span>
+                            </>
+                          )}
+                          {s.artifactId && (
+                            <>
+                              <span className="cp-res-sep">+</span>
+                              {s.artifactIconUrl && (
+                                <img src={s.artifactIconUrl} alt="" className="cp-res-icon" />
+                              )}
+                              <span className={resPriceClass(s.artifactPriceLevel)}>{formatPrice(s.artifactPrice)}</span>
+                            </>
+                          )}
+                          {s.heartId && (
+                            <>
+                              <span className="cp-res-sep">+</span>
+                              {s.heartIconUrl && (
+                                <img src={s.heartIconUrl} alt="" className="cp-res-icon" />
+                              )}
+                              <span className={resPriceClass(s.heartPriceLevel)}>{formatPrice(s.heartPrice)}</span>
+                            </>
+                          )}
+                          {s.crestId && (
+                            <>
+                              <span className="cp-res-sep">+</span>
+                              {s.crestIconUrl && (
+                                <img src={s.crestIconUrl} alt="" className="cp-res-icon" />
+                              )}
+                              <span className={resPriceClass(s.crestPriceLevel)}>{formatPrice(s.crestPrice)}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      <div className="cp-meta cp-saved-live-meta">
                         {s.currentDataMissing ? (
                           <span className="cp-rrr">Non in elenco — dati al salvataggio</span>
                         ) : (
                           <>
-                            <span className="cp-rrr">Vendita ora {formatPrice(s.currentProfitSell)}</span>
+                            <span
+                              className="cp-rrr"
+                              title="Profitto scenario vendita a listino (Lymhurst), con le regole del salvataggio (focus o meno)."
+                            >
+                              Profitto vendita ora: {formatPrice(s.currentProfitSell)}
+                            </span>
                             {s.profitSellDiff !== 0 && (
-                              <span className={s.profitSellDiff >= 0 ? 'cp-profit positive' : 'cp-profit negative'}>
-                                {s.profitSellDiff >= 0 ? '+' : ''}{formatPrice(s.profitSellDiff)}
+                              <span
+                                className={
+                                  s.profitSellDiff >= 0
+                                    ? 'cp-saved-profit-vs-save cp-saved-profit-vs-save--up'
+                                    : 'cp-saved-profit-vs-save cp-saved-profit-vs-save--down'
+                                }
+                                title="Quanto è cambiato quel profitto rispetto al valore memorizzato quando hai salvato l'item."
+                              >
+                                Rispetto al salvataggio: {s.profitSellDiff >= 0 ? '+' : ''}
+                                {formatPrice(s.profitSellDiff)}
                               </span>
                             )}
                           </>
@@ -673,7 +854,6 @@ const FocusPage: React.FC = () => {
                       <span className={`cp-yield-pct ${profitShow >= 0 ? 'positive' : 'negative'}`}>
                         {yieldPercentFromProfitAndCost(profitShow, costShow)}
                       </span>
-                      <span className="cp-bm-price" style={{ fontSize: '0.75rem' }}>vendita</span>
                     </div>
                   </IonItem>
                   <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(s.itemId, true)}>
@@ -695,13 +875,20 @@ const FocusPage: React.FC = () => {
             </div>
           )}
 
+          {listMode === 'saved' && !loading && savedItems.length > 0 && filteredSavedItems.length === 0 && (
+            <div className="cp-state-container">
+              <p>Nessun salvato corrisponde ai filtri (focus / materiali / ricerca).</p>
+              <p>Modifica filtri o la ricerca per vedere gli item.</p>
+            </div>
+          )}
+
           <IonAlert
             isOpen={!!saveAlertItem}
             onDidDismiss={() => setSaveAlertItem(null)}
             header={saveAlertItem?.isSaved ? 'Rimuovi dai salvati' : 'Salva item'}
             message={saveAlertItem?.isSaved
               ? 'Rimuovere questo item dai salvati?'
-              : 'Salvare questo item per tracciare il prezzo nel tempo?'}
+              : `Salvare questo item per tracciare il prezzo nel tempo? Scenario attuale: ${scenarioWithFocus ? 'con focus' : 'senza focus'}.`}
             buttons={[
               { text: 'Annulla', role: 'cancel' },
               { text: saveAlertItem?.isSaved ? 'Rimuovi' : 'Salva', handler: handleSaveOrRemoveConfirm },
@@ -749,6 +936,27 @@ const FocusPage: React.FC = () => {
               {detailItem && detailItem.iconUrl && (
                 <img src={detailItem.iconUrl} alt="" className="detail-hero-icon" />
               )}
+              {detailItem && (
+                <p
+                  className="cp-count"
+                  style={{ margin: '0 0 12px', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                  <IonIcon
+                    icon={detailItem.savedWithFocus !== false ? flash : flashOutline}
+                    style={{
+                      fontSize: '1.25rem',
+                      color:
+                        detailItem.savedWithFocus !== false
+                          ? 'var(--ion-color-warning-tint, #ffc409)'
+                          : 'var(--ion-color-medium)',
+                    }}
+                  />
+                  <span>
+                    Tracciamento:{' '}
+                    <strong>{detailItem.savedWithFocus !== false ? 'con focus' : 'senza focus'}</strong>
+                  </span>
+                </p>
+              )}
               {detailItem?.currentDataMissing && (
                 <div className="detail-missing-banner">
                   <strong>Non più nell&apos;elenco Focus attuale.</strong> Valori &quot;ora&quot; non disponibili; sotto i dati al salvataggio.
@@ -764,7 +972,6 @@ const FocusPage: React.FC = () => {
                       </p>
                     </IonCardHeader>
                     <IonCardContent>
-                      <p className="detail-metric-hint">Prezzo vendita = costo minimo per comprare l&apos;item a Lymhurst. Buy order = quanto ti pagano se vendi lì.</p>
                       <div className="comparison-list">
                         <div className="comparison-row">
                           <div className="comparison-metric-name">Prezzo vendita Lymhurst</div>
@@ -803,7 +1010,9 @@ const FocusPage: React.FC = () => {
                         </div>
                         <div className="comparison-row">
                           <div className="comparison-metric-name">Profitto scenario vendita</div>
-                          <p className="detail-metric-hint">Compri a Lymhurst (sell order) e rivendi al BM.</p>
+                          <p className="detail-metric-hint">
+                            Mercato reale <strong>Lymhurst</strong>: costo materie a listino e ricavo vendendo la craft al listino (sell order), con tasse e setup fee.
+                          </p>
                           <div className="comparison-columns">
                             <div className="comparison-col">
                               <span className="comparison-col-label">Al salvataggio</span>
@@ -852,64 +1061,117 @@ const FocusPage: React.FC = () => {
                       </div>
                     </IonCardContent>
                   </IonCard>
-                  <IonCard className="focus-detail-card detail-tracking-card">
-                    <IonCardHeader>
-                      <IonCardTitle>Le tue note</IonCardTitle>
-                      <p className="comparison-saved-at">&quot;Non impostato&quot; in cima alla lista salvati.</p>
-                    </IonCardHeader>
-                    <IonCardContent>
-                      <IonItem lines="none">
-                        <IonLabel>Attualmente in vendita</IonLabel>
-                        <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
-                      </IonItem>
-                      <IonItem lines="none">
-                        <IonLabel position="stacked">Disponibilità vendita</IonLabel>
-                        <IonSelect value={trSell} onIonChange={(e) => setTrSell((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
-                          {AVAIL_OPTIONS.map((o) => (
-                            <IonSelectOption key={o.value} value={o.value}>{o.label}</IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </IonItem>
-                      <IonItem lines="none">
-                        <IonLabel position="stacked">Stock</IonLabel>
-                        <IonSelect value={trStock} onIonChange={(e) => setTrStock((e.detail.value as AvailabilityLevelCode) ?? 'NONE')} interface="popover">
-                          {AVAIL_OPTIONS.map((o) => (
-                            <IonSelectOption key={o.value} value={o.value}>{o.label}</IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </IonItem>
-                      <IonButton expand="block" onClick={() => void saveFocusTracking()} disabled={trackSaving}>
-                        {trackSaving ? 'Salvataggio…' : 'Salva note'}
-                      </IonButton>
+                  <IonCard className="focus-detail-card detail-tracking-card notes-tracking-card">
+                    <IonCardContent className="notes-tracking">
+                      <div className="notes-tracking__head">
+                        <h3 className="notes-tracking__title">Le tue note</h3>
+                        <IonButton
+                          fill="clear"
+                          className="notes-tracking__save-btn"
+                          onClick={() => void saveFocusTracking()}
+                          disabled={trackSaving}
+                          aria-label="Salva note"
+                          title="Salva note"
+                        >
+                          {trackSaving ? (
+                            <IonSpinner name="crescent" className="notes-tracking__save-spinner" />
+                          ) : (
+                            <IonIcon icon={saveOutline} className="notes-tracking__save-icon" />
+                          )}
+                        </IonButton>
+                      </div>
+                      <p className="notes-tracking__hint">
+                        Con vendita o stock &quot;non impostato&quot;, l&apos;item resta in cima alla lista salvati.
+                      </p>
+                      <div className="notes-tracking__shell">
+                        <div className="notes-tracking__toggle-row">
+                          <span className="notes-tracking__label">In vendita</span>
+                          <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
+                        </div>
+                        <div className="notes-tracking__field">
+                          <span className="notes-tracking__sublabel">Richiesta ordini</span>
+                          <IonItem lines="none" className="notes-tracking__item">
+                            <IonSelect
+                              value={trSell}
+                              onIonChange={(e) => setTrSell((e.detail.value as AvailabilityLevelCode) ?? 'NONE')}
+                              interface="action-sheet"
+                              interfaceOptions={{ header: 'Richiesta ordini' }}
+                            >
+                              {AVAIL_OPTIONS.map((o) => (
+                                <IonSelectOption key={o.value} value={o.value}>
+                                  {o.label}
+                                </IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </IonItem>
+                        </div>
+                        <div className="notes-tracking__field">
+                          <div className="notes-tracking__sublabel notes-tracking__sublabel--with-stock-icon">
+                            <StockAvailabilityIcon
+                              variant="inline"
+                              level={trStock}
+                              label={AVAIL_OPTIONS.find((o) => o.value === trStock)?.label}
+                            />
+                            <span className="notes-tracking__sublabel-text">Stock</span>
+                          </div>
+                          <IonItem lines="none" className="notes-tracking__item">
+                            <IonSelect
+                              value={trStock}
+                              onIonChange={(e) => setTrStock((e.detail.value as AvailabilityLevelCode) ?? 'NONE')}
+                              interface="action-sheet"
+                              interfaceOptions={{ header: 'Stock' }}
+                            >
+                              {AVAIL_OPTIONS.map((o) => (
+                                <IonSelectOption key={o.value} value={o.value}>
+                                  {o.label}
+                                </IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </IonItem>
+                        </div>
+                      </div>
                     </IonCardContent>
                   </IonCard>
                 </>
               )}
 
               <IonCard className="focus-detail-card">
-                <IonCardHeader>
-                  <IonCardTitle>Cerca mercati — miglior prezzo</IonCardTitle>
+                <IonCardHeader className="focus-detail-mercati-header">
+                  <div className="focus-detail-mercati-head">
+                    <IonCardTitle>Cerca mercati — miglior prezzo</IonCardTitle>
+                    <IonButton
+                      fill="clear"
+                      className="focus-detail-refresh-btn"
+                      onClick={() => void loadRoyalMarkets()}
+                      disabled={royalMarketsLoading}
+                      aria-label={royalMarkets ? 'Aggiorna dati mercati' : 'Carica dati mercati'}
+                      title={royalMarkets ? 'Aggiorna mercati' : 'Carica lista mercati'}
+                    >
+                      {royalMarketsLoading ? (
+                        <IonSpinner name="crescent" className="focus-detail-refresh-spinner" />
+                      ) : (
+                        <IonIcon icon={refreshOutline} className="focus-detail-refresh-icon" />
+                      )}
+                    </IonButton>
+                  </div>
                   <p className="focus-detail-subtitle">
                     Dati da DB (Royal Continent). Confronto tra Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford,{' '}
                     <strong>Brecilien</strong> e Caerleon: stesso item, classifica per listino vendita e buy order.
                   </p>
                 </IonCardHeader>
                 <IonCardContent>
-                  <IonButton expand="block" onClick={loadRoyalMarkets} disabled={royalMarketsLoading} className="focus-detail-load-btn">
-                    {royalMarketsLoading ? 'Caricamento...' : 'Carica lista mercati'}
-                  </IonButton>
                   {royalMarkets && (
                     <div className="focus-markets-wrap">
                       {(royalMarkets.bestSellListCity || royalMarkets.bestBuyOrderCity) && (
-                        <div className="focus-market-best-banner" style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'var(--ion-color-step-100, #1e1e1e)' }}>
+                        <div className="focus-market-best-banner">
                           {royalMarkets.bestSellListCity && (
-                            <p style={{ margin: '0 0 6px 0', fontSize: '0.95rem' }}>
+                            <p>
                               <strong>Miglior listino vendita:</strong> {royalMarkets.bestSellListCity}
                               {royalMarkets.bestSellListCity === 'Brecilien' && ' ✓'}
                             </p>
                           )}
                           {royalMarkets.bestBuyOrderCity && (
-                            <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                            <p>
                               <strong>Miglior buy order:</strong> {royalMarkets.bestBuyOrderCity}
                               {royalMarkets.bestBuyOrderCity === 'Brecilien' && ' ✓'}
                             </p>
@@ -922,15 +1184,25 @@ const FocusPage: React.FC = () => {
                           {royalMarkets.sellOrders.length === 0 ? (
                             <p className="focus-market-empty">Nessun prezzo vendita</p>
                           ) : (
-                            royalMarkets.sellOrders.map((e, i) => (
-                              <div key={e.city} className="focus-market-row">
-                                <span className="focus-market-rank">{i + 1}</span>
-                                <span className="focus-market-city">{e.city}</span>
-                                <span className="focus-market-prices">
-                                  min {formatPrice(e.sellPriceMin)} · max {formatPrice(e.sellPriceMax)}
-                                </span>
-                              </div>
-                            ))
+                            royalMarkets.sellOrders.map((e, i) => {
+                              const rankMod = focusMarketRankModifier(i);
+                              return (
+                                <div key={e.city} className={`focus-market-row ${rankMod}`.trim()}>
+                                  <span className="focus-market-rank">{i + 1}</span>
+                                  <span className="focus-market-city">{e.city}</span>
+                                  <div className="focus-market-prices">
+                                    <div className="focus-market-price-line">
+                                      <span className="focus-market-p-label">Min</span>
+                                      <span className="focus-market-p-value">{formatPrice(e.sellPriceMin)}</span>
+                                    </div>
+                                    <div className="focus-market-price-line">
+                                      <span className="focus-market-p-label">Max</span>
+                                      <span className="focus-market-p-value">{formatPrice(e.sellPriceMax)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       </div>
@@ -940,15 +1212,25 @@ const FocusPage: React.FC = () => {
                           {royalMarkets.buyOrders.length === 0 ? (
                             <p className="focus-market-empty">Nessun buy order</p>
                           ) : (
-                            royalMarkets.buyOrders.map((e, i) => (
-                              <div key={e.city} className="focus-market-row">
-                                <span className="focus-market-rank">{i + 1}</span>
-                                <span className="focus-market-city">{e.city}</span>
-                                <span className="focus-market-prices">
-                                  min {formatPrice(e.buyPriceMin)} · max {formatPrice(e.buyPriceMax)}
-                                </span>
-                              </div>
-                            ))
+                            royalMarkets.buyOrders.map((e, i) => {
+                              const rankMod = focusMarketRankModifier(i);
+                              return (
+                                <div key={e.city} className={`focus-market-row ${rankMod}`.trim()}>
+                                  <span className="focus-market-rank">{i + 1}</span>
+                                  <span className="focus-market-city">{e.city}</span>
+                                  <div className="focus-market-prices">
+                                    <div className="focus-market-price-line">
+                                      <span className="focus-market-p-label">Min</span>
+                                      <span className="focus-market-p-value">{formatPrice(e.buyPriceMin)}</span>
+                                    </div>
+                                    <div className="focus-market-price-line">
+                                      <span className="focus-market-p-label">Max</span>
+                                      <span className="focus-market-p-value">{formatPrice(e.buyPriceMax)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       </div>

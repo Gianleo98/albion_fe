@@ -219,8 +219,8 @@ export const getSavedFocusItemIds = async (): Promise<string[]> => {
   return data;
 };
 
-export const saveFocusItem = async (itemId: string): Promise<void> => {
-  await api.post('/api/saved-focus-items', { itemId });
+export const saveFocusItem = async (itemId: string, withFocus: boolean = true): Promise<void> => {
+  await api.post('/api/saved-focus-items', { itemId, withFocus });
 };
 
 export const deleteSavedFocusItem = async (itemId: string): Promise<void> => {

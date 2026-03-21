@@ -237,23 +237,28 @@ export interface SavedFocusItemResponse {
   stockAvailabilityRank?: number;
   profitSortKey?: number;
   bonusCategory: string | null;
-  primaryResourceId: string;
+  primaryResourceId: string | null;
   primaryResourcePrice: number;
   primaryResourceQty: number;
   primaryResourceIconUrl: string | null;
+  primaryResourcePriceLevel?: 'below' | 'equal' | 'above';
   secondaryResourceId: string | null;
   secondaryResourcePrice: number;
   secondaryResourceQty: number;
   secondaryResourceIconUrl: string | null;
+  secondaryResourcePriceLevel?: 'below' | 'equal' | 'above';
   artifactId: string | null;
   artifactPrice: number;
   artifactIconUrl: string | null;
+  artifactPriceLevel?: 'below' | 'equal' | 'above';
   heartId: string | null;
   heartPrice: number;
   heartIconUrl: string | null;
+  heartPriceLevel?: 'below' | 'equal' | 'above';
   crestId: string | null;
   crestPrice: number;
   crestIconUrl: string | null;
+  crestPriceLevel?: 'below' | 'equal' | 'above';
   totalMaterialCost: number;
   effectiveCostWithFocus: number;
   lymhurstSellPriceMin: number;
@@ -278,6 +283,9 @@ export interface SavedFocusItemResponse {
   buyPriceDiff: number;
   profitSellDiff: number;
   profitBuyOrderDiff: number;
+  /** false = snapshot salvato in modalità senza focus; assente/legacy = con focus */
+  savedWithFocus?: boolean;
+  materialsUnderAvg?: boolean;
 }
 
 // --- Royal Markets (Focus: sell/buy order per città, solo lettura) ---
