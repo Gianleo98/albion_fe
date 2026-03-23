@@ -70,6 +70,27 @@ import './CraftingPage.css';
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
 
+/** Lista salvati: prezzo unitario ora + (se noto) prezzo al salvataggio. */
+function focusSavedMatUnitPrice(
+  current: number,
+  saved: number | null | undefined,
+  level?: 'below' | 'equal' | 'above'
+) {
+  return (
+    <>
+      <span className={resPriceClass(level)} title="Prezzo unitario ora (Lymhurst, listino)">
+        {formatPrice(current)}
+      </span>
+      {saved != null && Number.isFinite(saved) && (
+        <span className="cp-res-price-at-save" title="Prezzo unitario al salvataggio">
+          {' · '}
+          {formatPrice(saved)}
+        </span>
+      )}
+    </>
+  );
+}
+
 function focusSellYieldFmt(item: FocusProfitResponse, withFocus: boolean): string {
   const y = withFocus ? item.yieldPercentage : item.yieldPercentageWithoutFocus;
   const profit = withFocus ? item.profitSell : (item.profitSellWithoutFocus ?? 0);
@@ -775,9 +796,11 @@ const FocusPage: React.FC = () => {
                             <img src={s.primaryResourceIconUrl} alt="" className="cp-res-icon" />
                           )}
                           <span className="cp-res-qty">{s.primaryResourceQty}x</span>
-                          <span className={resPriceClass(s.primaryResourcePriceLevel)}>
-                            {formatPrice(s.primaryResourcePrice)}
-                          </span>
+                          {focusSavedMatUnitPrice(
+                            s.primaryResourcePrice,
+                            s.savedPrimaryResourcePrice,
+                            s.primaryResourcePriceLevel
+                          )}
                           {s.secondaryResourceId && (
                             <>
                               <span className="cp-res-sep">+</span>
@@ -785,9 +808,11 @@ const FocusPage: React.FC = () => {
                                 <img src={s.secondaryResourceIconUrl} alt="" className="cp-res-icon" />
                               )}
                               <span className="cp-res-qty">{s.secondaryResourceQty}x</span>
-                              <span className={resPriceClass(s.secondaryResourcePriceLevel)}>
-                                {formatPrice(s.secondaryResourcePrice)}
-                              </span>
+                              {focusSavedMatUnitPrice(
+                                s.secondaryResourcePrice,
+                                s.savedSecondaryResourcePrice,
+                                s.secondaryResourcePriceLevel
+                              )}
                             </>
                           )}
                           {s.artifactId && (
@@ -796,7 +821,7 @@ const FocusPage: React.FC = () => {
                               {s.artifactIconUrl && (
                                 <img src={s.artifactIconUrl} alt="" className="cp-res-icon" />
                               )}
-                              <span className={resPriceClass(s.artifactPriceLevel)}>{formatPrice(s.artifactPrice)}</span>
+                              {focusSavedMatUnitPrice(s.artifactPrice, s.savedArtifactPrice, s.artifactPriceLevel)}
                             </>
                           )}
                           {s.heartId && (
@@ -805,7 +830,7 @@ const FocusPage: React.FC = () => {
                               {s.heartIconUrl && (
                                 <img src={s.heartIconUrl} alt="" className="cp-res-icon" />
                               )}
-                              <span className={resPriceClass(s.heartPriceLevel)}>{formatPrice(s.heartPrice)}</span>
+                              {focusSavedMatUnitPrice(s.heartPrice, s.savedHeartPrice, s.heartPriceLevel)}
                             </>
                           )}
                           {s.crestId && (
@@ -814,7 +839,7 @@ const FocusPage: React.FC = () => {
                               {s.crestIconUrl && (
                                 <img src={s.crestIconUrl} alt="" className="cp-res-icon" />
                               )}
-                              <span className={resPriceClass(s.crestPriceLevel)}>{formatPrice(s.crestPrice)}</span>
+                              {focusSavedMatUnitPrice(s.crestPrice, s.savedCrestPrice, s.crestPriceLevel)}
                             </>
                           )}
                         </div>
@@ -853,6 +878,19 @@ const FocusPage: React.FC = () => {
                       </span>
                       <span className={`cp-yield-pct ${profitShow >= 0 ? 'positive' : 'negative'}`}>
                         {yieldPercentFromProfitAndCost(profitShow, costShow)}
+                      </span>
+                      <span
+                        className="cp-bm-price"
+                        title="Costo effettivo craft oggi (RRR e scenario come al salvataggio: con/senza focus)"
+                      >
+                        Craft ora:{' '}
+                        {s.currentDataMissing ? '—' : formatPrice(s.currentEffectiveCost)}
+                      </span>
+                      <span
+                        className="cp-bm-price"
+                        title={"Costo effettivo craft quando hai salvato l'item"}
+                      >
+                        Craft al salv.: {formatPrice(s.savedEffectiveCost)}
                       </span>
                     </div>
                   </IonItem>

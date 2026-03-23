@@ -210,6 +210,13 @@
   font-weight: 600;
 }
 
+.cp-res-price-at-save {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--ion-color-medium);
+  opacity: 0.9;
+}
+
 .cp-res-sep {
   font-size: 0.72rem;
   color: var(--ion-color-medium);

@@ -166,6 +166,31 @@ export interface FlipProfitResponse {
   iconUrl: string | null;
 }
 
+/** Flip tra 6 mercati royal (+ Brecilien), senza Caerleon (tabella pre-calcolata). */
+export interface RoyalContinentFlipResponse {
+  itemId: string;
+  category: string;
+  tier: number;
+  enchantment: number;
+  iconUrl: string | null;
+  taxPercentApplied: number;
+  boBuyCity: string | null;
+  boSellCity: string | null;
+  boCost: number;
+  boDestBuyOrderMax: number;
+  boRevenueNet: number;
+  boProfit: number;
+  boProfitPercentage: number;
+  soBuyCity: string | null;
+  soSellCity: string | null;
+  soCost: number;
+  soDestSellMin: number;
+  soRevenueNet: number;
+  soProfit: number;
+  soProfitPercentage: number;
+  computedAt: string;
+}
+
 // --- Focus Profit (crafting con focus, mercato Lymhurst) ---
 
 export interface FocusProfitResponse {
@@ -259,6 +284,13 @@ export interface SavedFocusItemResponse {
   crestPrice: number;
   crestIconUrl: string | null;
   crestPriceLevel?: 'below' | 'equal' | 'above';
+  /** Prezzi unitari materiali al salvataggio; assenti su snapshot legacy */
+  savedPrimaryResourcePrice?: number | null;
+  savedSecondaryResourcePrice?: number | null;
+  savedArtifactPrice?: number | null;
+  savedHeartPrice?: number | null;
+  savedCrestPrice?: number | null;
+  savedTotalMaterialCost?: number | null;
   totalMaterialCost: number;
   effectiveCostWithFocus: number;
   lymhurstSellPriceMin: number;

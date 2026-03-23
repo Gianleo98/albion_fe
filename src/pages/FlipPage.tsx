@@ -16,11 +16,29 @@ import {
   IonInfiniteScroll,
   IonInfiniteScrollContent,
   useIonViewWillEnter,
+  useIonToast,
 } from '@ionic/react';
-import { arrowDownOutline, arrowUpOutline, searchOutline, funnelOutline, funnel } from 'ionicons/icons';
-import { getFlipProfits, getFlipProfitSortOptions } from '../services/api';
+import {
+  arrowDownOutline,
+  arrowUpOutline,
+  searchOutline,
+  funnelOutline,
+  funnel,
+  globeOutline,
+  globe,
+  refreshOutline,
+  bagCheckOutline,
+  pricetagOutline,
+} from 'ionicons/icons';
+import {
+  getFlipProfits,
+  getFlipProfitSortOptions,
+  getRoyalContinentFlipProfits,
+  getRoyalFlipSortOptions,
+  recomputeRoyalContinentFlip,
+} from '../services/api';
 import { refreshFlipHighProfitAlerts } from '../services/flipHighProfitNotify';
-import type { FlipProfitResponse, SortOption } from '../types';
+import type { FlipProfitResponse, RoyalContinentFlipResponse, SortOption } from '../types';
 import AppHeader from '../components/AppHeader';
 import './CraftingPage.css';
 
@@ -38,12 +56,20 @@ const cleanItemName = (itemId: string): string => {
   return name.replaceAll('_', ' ').replaceAll(/\b\w/g, (c) => c.toUpperCase());
 };
 
+type FlipListMode = 'bm' | 'royal';
+
+function isRoyalRow(r: FlipProfitResponse | RoyalContinentFlipResponse): r is RoyalContinentFlipResponse {
+  return 'boProfit' in r && 'soProfit' in r;
+}
+
 const FlipPage: React.FC = () => {
-  const [items, setItems] = useState<FlipProfitResponse[]>([]);
+  const [flipListMode, setFlipListMode] = useState<FlipListMode>('bm');
+  const [items, setItems] = useState<(FlipProfitResponse | RoyalContinentFlipResponse)[]>([]);
   const [sortOptions, setSortOptions] = useState<SortOption[]>([]);
   const [sortBy, setSortBy] = useState('PROFIT');
   const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
   const [loading, setLoading] = useState(true);
+  const [recomputing, setRecomputing] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,8 +79,13 @@ const FlipPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
+  /** Royal: BO = listino → buy order; SO = listino → sell listino */
+  const [royalFlipPath, setRoyalFlipPath] = useState<'BO' | 'SO'>('BO');
+  const [lastRoyalComputedHint, setLastRoyalComputedHint] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const didMountRef = useRef(false);
+  const didMountSearchRef = useRef(false);
+  const didMountModeRef = useRef(false);
+  const [presentToast] = useIonToast();
 
   useEffect(() => {
     searchDebounceRef.current = setTimeout(() => setNameSearch(searchInput), 400);
@@ -64,13 +95,33 @@ const FlipPage: React.FC = () => {
   }, [searchInput]);
 
   useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
+    if (!didMountSearchRef.current) {
+      didMountSearchRef.current = true;
       return;
     }
     setLoading(true);
-    fetchItems(0, true);
+    void fetchItems(0, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ordinamento gestito da handleSortChange
   }, [nameSearch, materialsUnderAvg]);
+
+  useEffect(() => {
+    if (!didMountModeRef.current) {
+      didMountModeRef.current = true;
+      return;
+    }
+    void (async () => {
+      try {
+        const opts =
+          flipListMode === 'bm' ? await getFlipProfitSortOptions() : await getRoyalFlipSortOptions();
+        setSortOptions(opts);
+      } catch {
+        /* ignore */
+      }
+      setLoading(true);
+      await fetchItems(0, true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ordinamento gestito da handleSortChange
+  }, [flipListMode, royalFlipPath]);
 
   const fetchItems = useCallback(
     async (
@@ -82,38 +133,105 @@ const FlipPage: React.FC = () => {
       const sort = sortByOverride ?? sortBy;
       const direction = sortDirectionOverride ?? sortDirection;
       try {
-        const data = await getFlipProfits(
-          pageNum,
-          20,
-          sort,
-          direction,
-          nameSearch || undefined,
-          materialsUnderAvg || undefined
-        );
-        if (reset) {
-          setItems(data.content);
+        if (flipListMode === 'bm') {
+          const data = await getFlipProfits(
+            pageNum,
+            20,
+            sort,
+            direction,
+            nameSearch || undefined,
+            materialsUnderAvg || undefined
+          );
+          if (reset) {
+            setItems(data.content);
+          } else {
+            setItems((prev) => [...prev, ...data.content]);
+          }
+          setHasMore(!data.last);
+          setPage(pageNum);
+          setTotalElements(data.totalElements);
         } else {
-          setItems((prev) => [...prev, ...data.content]);
+          const data = await getRoyalContinentFlipProfits(
+            pageNum,
+            20,
+            sort,
+            direction,
+            nameSearch || undefined,
+            royalFlipPath
+          );
+          if (reset) {
+            setItems(data.content);
+            const first = data.content[0];
+            if (first && isRoyalRow(first) && first.computedAt) {
+              try {
+                setLastRoyalComputedHint(
+                  new Date(first.computedAt).toLocaleString('it-IT', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                );
+              } catch {
+                setLastRoyalComputedHint(null);
+              }
+            } else if (data.content.length === 0) {
+              setLastRoyalComputedHint(null);
+            }
+          } else {
+            setItems((prev) => [...prev, ...data.content]);
+          }
+          setHasMore(!data.last);
+          setPage(pageNum);
+          setTotalElements(data.totalElements);
         }
-        setHasMore(!data.last);
-        setPage(pageNum);
-        setTotalElements(data.totalElements);
       } catch {
         setItems((prev) => (reset ? [] : prev));
         setHasMore(false);
-        if (reset) setError('Impossibile caricare le opportunità flip.');
+        if (reset) {
+          setError(
+            flipListMode === 'bm'
+              ? 'Impossibile caricare le opportunità flip.'
+              : 'Impossibile caricare il flip Royal Continent.'
+          );
+        }
       } finally {
         setLoading(false);
       }
     },
-    [sortBy, sortDirection, nameSearch, materialsUnderAvg]
+    [sortBy, sortDirection, nameSearch, materialsUnderAvg, flipListMode, royalFlipPath]
   );
+
+  const runRoyalRecompute = useCallback(async () => {
+    setRecomputing(true);
+    try {
+      const res = await recomputeRoyalContinentFlip();
+      presentToast({
+        message: `Royal cross: ${res.itemsStored} opportunità salvate.`,
+        duration: 2500,
+        color: 'success',
+        position: 'top',
+      });
+      setLoading(true);
+      await fetchItems(0, true);
+    } catch {
+      presentToast({
+        message: 'Ricalcolo Royal Continent fallito.',
+        duration: 2500,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setRecomputing(false);
+    }
+  }, [fetchItems, presentToast]);
 
   const fetchInitial = async () => {
     try {
       setError(null);
       setLoading(true);
-      const optionsData = await getFlipProfitSortOptions();
+      const optionsData =
+        flipListMode === 'bm' ? await getFlipProfitSortOptions() : await getRoyalFlipSortOptions();
       setSortOptions(optionsData);
     } catch {
       /* ignore */
@@ -128,7 +246,9 @@ const FlipPage: React.FC = () => {
   const handleRefresh = async (e: CustomEvent) => {
     setLoading(true);
     await fetchItems(0, true);
-    void refreshFlipHighProfitAlerts();
+    if (flipListMode === 'bm') {
+      void refreshFlipHighProfitAlerts();
+    }
     (e.target as HTMLIonRefresherElement).complete();
   };
 
@@ -155,13 +275,40 @@ const FlipPage: React.FC = () => {
     fetchItems(0, true, sortBy, next);
   };
 
+  const toggleRoyalMode = () => {
+    setFlipListMode((m) => {
+      const next = m === 'bm' ? 'royal' : 'bm';
+      if (next === 'royal') {
+        setRoyalFlipPath('BO');
+      }
+      return next;
+    });
+    setSortBy('PROFIT');
+    setItems([]);
+    setPage(0);
+    setHasMore(true);
+    setError(null);
+  };
+
+  const toggleRoyalPathOrBmMargin = () => {
+    if (flipListMode === 'bm') {
+      setSearchInput('');
+      setNameSearch('');
+      setMaterialsUnderAvg((prev) => !prev);
+    } else {
+      setRoyalFlipPath((p) => (p === 'BO' ? 'SO' : 'BO'));
+    }
+  };
+
   return (
     <IonPage>
       <AppHeader
         onFlipUpdated={() => {
           setLoading(true);
           void fetchItems(0, true).finally(() => {
-            void refreshFlipHighProfitAlerts();
+            if (flipListMode === 'bm') {
+              void refreshFlipHighProfitAlerts();
+            }
           });
         }}
       />
@@ -182,18 +329,79 @@ const FlipPage: React.FC = () => {
             </IonItem>
             <button
               type="button"
-              className={`cp-filter-below-btn ${materialsUnderAvg ? 'active' : ''}`}
-              onClick={() => {
-                setSearchInput('');
-                setNameSearch('');
-                setMaterialsUnderAvg((prev) => !prev);
-              }}
-              title="Solo flip con margine ≥ 8% sul costo Caerleon"
-              aria-label="Filtra margini alti"
+              className={`cp-filter-below-btn ${flipListMode === 'royal' ? 'active' : ''}`}
+              onClick={() => toggleRoyalMode()}
+              title={
+                flipListMode === 'bm'
+                  ? 'Flip royal tra 6 città (senza Caerleon). Tocca di nuovo per Caerleon → Black Market.'
+                  : 'Torna a Caerleon → Black Market'
+              }
+              aria-label={flipListMode === 'bm' ? 'Attiva flip Royal Continent' : 'Torna a flip Black Market'}
             >
-              <IonIcon icon={materialsUnderAvg ? funnel : funnelOutline} />
+              <IonIcon icon={flipListMode === 'royal' ? globe : globeOutline} />
+            </button>
+            {flipListMode === 'royal' && (
+              <button
+                type="button"
+                className="cp-filter-below-btn"
+                onClick={() => void runRoyalRecompute()}
+                disabled={recomputing}
+                title="Ricalcola opportunità tra Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford e Brecilien (Caerleon escluso)"
+                aria-label="Ricalcola flip Royal Continent"
+              >
+                {recomputing ? <IonSpinner name="crescent" style={{ width: 20, height: 20 }} /> : <IonIcon icon={refreshOutline} />}
+              </button>
+            )}
+            <button
+              type="button"
+              className={`cp-filter-below-btn ${
+                flipListMode === 'bm' ? (materialsUnderAvg ? 'active' : '') : royalFlipPath === 'SO' ? 'active' : ''
+              }`}
+              onClick={() => toggleRoyalPathOrBmMargin()}
+              title={
+                flipListMode === 'bm'
+                  ? 'Solo flip con margine ≥ 8% sul costo Caerleon'
+                  : royalFlipPath === 'BO'
+                    ? 'Percorso: listino → buy order a destinazione. Tocca per listino → sell listino.'
+                    : 'Percorso: listino → sell listino a destinazione. Tocca per listino → buy order.'
+              }
+              aria-label={
+                flipListMode === 'bm' ? 'Filtra margini alti' : 'Alterna percorso royal buy order / sell listino'
+              }
+            >
+              <IonIcon
+                icon={
+                  flipListMode === 'bm'
+                    ? materialsUnderAvg
+                      ? funnel
+                      : funnelOutline
+                    : royalFlipPath === 'SO'
+                      ? pricetagOutline
+                      : bagCheckOutline
+                }
+              />
             </button>
           </div>
+
+          {flipListMode === 'royal' && (
+            <p
+              className="cp-count"
+              style={{ margin: '6px 12px 4px', fontSize: '0.78rem', opacity: 0.78, lineHeight: 1.4 }}
+            >
+              <strong>Royal Continent:</strong> solo le 6 città royal più Brecilien — <strong>Caerleon esclusa</strong>{' '}
+              (usa la lista Caerleon → BM). Compri al <strong>listino minimo</strong> in una città. Il filtro a destra
+              alterna solo <strong>listino → buy order</strong> (icona carrello) o solo{' '}
+              <strong>listino → sell listino</strong> (icona tag). Buy order: solo tassa mercato; sell listino: tassa +{' '}
+              <strong>2,5% setup</strong>. Usa <strong>aggiorna</strong> accanto al globo dopo &quot;Aggiorna Royal
+              Continent&quot;.
+              {lastRoyalComputedHint && (
+                <>
+                  {' '}
+                  Dati da: <strong>{lastRoyalComputedHint}</strong>
+                </>
+              )}
+            </p>
+          )}
 
           <div className="cp-toolbar">
             {sortOptions.length > 0 && (
@@ -224,7 +432,14 @@ const FlipPage: React.FC = () => {
           </div>
 
           {!loading && totalElements > 0 && (
-            <p className="cp-count">{totalElements} opportunità</p>
+            <p className="cp-count">
+              {totalElements} opportunità
+              {flipListMode === 'royal'
+                ? royalFlipPath === 'BO'
+                  ? ' — listino → buy order'
+                  : ' — listino → sell listino'
+                : ''}
+            </p>
           )}
 
           {loading && (
@@ -242,66 +457,183 @@ const FlipPage: React.FC = () => {
           {!loading && !error && items.length === 0 && (
             <div className="cp-state-container">
               <p>Nessuna opportunità flip trovata.</p>
-              <p style={{ fontSize: '0.9rem', marginTop: 8 }}>
-                Aggiorna <strong>Royal Continent</strong> e <strong>Black Market</strong> dal menu. Controlla Premium (tassa 4% / 8%).
-              </p>
+              {flipListMode === 'bm' ? (
+                <p style={{ fontSize: '0.9rem', marginTop: 8 }}>
+                  Aggiorna <strong>Royal Continent</strong> e <strong>Black Market</strong> dal menu. Controlla Premium (tassa 4% /
+                  8%).
+                </p>
+              ) : (
+                <p style={{ fontSize: '0.9rem', marginTop: 8 }}>
+                  Tocca <strong>ricarica</strong> accanto al globo per calcolare le rotte tra le 6 città royal (senza Caerleon), oppure esegui{' '}
+                  <strong>Aggiorna Royal Continent</strong> dal menu (ricalcola anche questa lista).
+                </p>
+              )}
             </div>
           )}
 
           {!loading && !error && items.length > 0 && (
             <>
               <IonList className="cp-list">
-                {items.map((item) => (
-                  <IonItem key={item.itemId} className="cp-item">
-                    <div className="cp-item-left" slot="start">
-                      <button
-                        type="button"
-                        className="cp-icon-btn"
-                        onClick={() =>
-                          setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)
-                        }
-                      >
-                        {item.iconUrl && !failedIcons.has(item.itemId) ? (
-                          <img
-                            src={item.iconUrl}
-                            alt=""
-                            className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
-                            loading="lazy"
-                            onError={() =>
-                              setFailedIcons((prev) => new Set(prev).add(item.itemId))
+                {items.map((item) => {
+                  if (!isRoyalRow(item)) {
+                    return (
+                      <IonItem key={item.itemId} className="cp-item">
+                        <div className="cp-item-left" slot="start">
+                          <button
+                            type="button"
+                            className="cp-icon-btn"
+                            onClick={() =>
+                              setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)
                             }
-                          />
-                        ) : (
-                          <div className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ion-color-step-150)', fontSize: 10 }}>
-                            T{item.tier}
+                          >
+                            {item.iconUrl && !failedIcons.has(item.itemId) ? (
+                              <img
+                                src={item.iconUrl}
+                                alt=""
+                                className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                                loading="lazy"
+                                onError={() =>
+                                  setFailedIcons((prev) => new Set(prev).add(item.itemId))
+                                }
+                              />
+                            ) : (
+                              <div
+                                className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  background: 'var(--ion-color-step-150)',
+                                  fontSize: 10,
+                                }}
+                              >
+                                T{item.tier}
+                              </div>
+                            )}
+                          </button>
+                        </div>
+                        <IonLabel>
+                          <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
+                          <div className="cp-meta">
+                            <span>T{item.tier}</span>
+                            {item.enchantment > 0 && <span> .{item.enchantment}</span>}
+                            <span> · {item.category}</span>
                           </div>
-                        )}
-                      </button>
-                    </div>
-                    <IonLabel>
-                      <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
-                      <div className="cp-meta">
-                        <span>T{item.tier}</span>
-                        {item.enchantment > 0 && <span> .{item.enchantment}</span>}
-                        <span> · {item.category}</span>
-                      </div>
+                          <div className="cp-resources" style={{ marginTop: 6 }}>
+                            <span className="cp-res-price cp-res-price--equal">
+                              Caerleon: {formatPrice(item.caerleonSellPriceMin)}
+                            </span>
+                            <span className="cp-res-sep">→</span>
+                            <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
+                          </div>
+                          <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
+                            Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
+                          </div>
+                        </IonLabel>
+                        <div slot="end" className="cp-profit-col">
+                          <span className="cp-profit positive">+{formatPrice(item.profit)}</span>
+                          <span className="cp-bm-price">+{item.profitPercentage.toFixed(1)}%</span>
+                        </div>
+                      </IonItem>
+                    );
+                  }
+                  const r = item;
+                  const royalBo = royalFlipPath === 'BO';
+                  const boLine =
+                    royalBo && r.boProfit > 0 && r.boBuyCity && r.boSellCity ? (
                       <div className="cp-resources" style={{ marginTop: 6 }}>
-                        <span className="cp-res-price cp-res-price--equal">
-                          Caerleon: {formatPrice(item.caerleonSellPriceMin)}
+                        <span className="cp-res-price cp-res-price--equal" style={{ fontWeight: 600 }}>
+                          Buy order
                         </span>
-                        <span className="cp-res-sep">→</span>
-                        <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
+                        <span className="cp-res-sep">:</span>
+                        <span>
+                          {r.boBuyCity} {formatPrice(r.boCost)} → {r.boSellCity} BO {formatPrice(r.boDestBuyOrderMax)}
+                        </span>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: 2 }}>
+                          Netto {formatPrice(r.boRevenueNet)} · +{formatPrice(r.boProfit)} (
+                          {r.boProfitPercentage.toFixed(1)}%)
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
-                        Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
+                    ) : null;
+                  const soLine =
+                    !royalBo && r.soProfit > 0 && r.soBuyCity && r.soSellCity ? (
+                      <div className="cp-resources" style={{ marginTop: 6 }}>
+                        <span className="cp-res-price cp-res-price--equal" style={{ fontWeight: 600 }}>
+                          Sell listino
+                        </span>
+                        <span className="cp-res-sep">:</span>
+                        <span>
+                          {r.soBuyCity} {formatPrice(r.soCost)} → {r.soSellCity} min {formatPrice(r.soDestSellMin)}
+                        </span>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: 2 }}>
+                          Netto {formatPrice(r.soRevenueNet)} · +{formatPrice(r.soProfit)} (
+                          {r.soProfitPercentage.toFixed(1)}%)
+                        </div>
                       </div>
-                    </IonLabel>
-                    <div slot="end" className="cp-profit-col">
-                      <span className="cp-profit positive">+{formatPrice(item.profit)}</span>
-                      <span className="cp-bm-price">+{item.profitPercentage.toFixed(1)}%</span>
-                    </div>
-                  </IonItem>
-                ))}
+                    ) : null;
+                  return (
+                    <IonItem key={r.itemId} className="cp-item">
+                      <div className="cp-item-left" slot="start">
+                        <button
+                          type="button"
+                          className="cp-icon-btn"
+                          onClick={() =>
+                            setExpandedIcon(expandedIcon === r.itemId ? null : r.itemId)
+                          }
+                        >
+                          {r.iconUrl && !failedIcons.has(r.itemId) ? (
+                            <img
+                              src={r.iconUrl}
+                              alt=""
+                              className={`cp-item-icon ${expandedIcon === r.itemId ? 'expanded' : ''}`}
+                              loading="lazy"
+                              onError={() =>
+                                setFailedIcons((prev) => new Set(prev).add(r.itemId))
+                              }
+                            />
+                          ) : (
+                            <div
+                              className={`cp-item-icon ${expandedIcon === r.itemId ? 'expanded' : ''}`}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'var(--ion-color-step-150)',
+                                fontSize: 10,
+                              }}
+                            >
+                              T{r.tier}
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                      <IonLabel>
+                        <h3 className="cp-item-name">{cleanItemName(r.itemId)}</h3>
+                        <div className="cp-meta">
+                          <span>T{r.tier}</span>
+                          {r.enchantment > 0 && <span> .{r.enchantment}</span>}
+                          <span> · {r.category}</span>
+                        </div>
+                        {boLine}
+                        {soLine}
+                        <div style={{ fontSize: '0.72rem', opacity: 0.65, marginTop: 4 }}>
+                          {royalBo
+                            ? `Ricavo: solo tassa mercato ${r.taxPercentApplied}% (nessun setup 2,5%).`
+                            : `Ricavo: tassa ${r.taxPercentApplied}% + setup listino 2,5% (come Focus).`}
+                        </div>
+                      </IonLabel>
+                      <div slot="end" className="cp-profit-col">
+                        <span className="cp-profit positive" title="Profitto sul percorso selezionato">
+                          +
+                          {formatPrice(royalBo ? r.boProfit : r.soProfit)}
+                        </span>
+                        <span className="cp-bm-price" title="Rendimento % sul costo listino (origine)">
+                          +{(royalBo ? r.boProfitPercentage : r.soProfitPercentage).toFixed(1)}%
+                        </span>
+                      </div>
+                    </IonItem>
+                  );
+                })}
               </IonList>
               <IonInfiniteScroll disabled={!hasMore} onIonInfinite={loadMore}>
                 <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Caricamento..." />

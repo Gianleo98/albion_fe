@@ -14,6 +14,7 @@ import type {
   SavedFocusItemResponse,
   SortOption,
   FlipProfitResponse,
+  RoyalContinentFlipResponse,
   SavedItemTrackingPayload,
 } from '../types';
 
@@ -202,6 +203,31 @@ export const getFlipProfits = async (
 
 export const getFlipProfitSortOptions = async (): Promise<SortOption[]> => {
   const { data } = await api.get<SortOption[]>('/api/enums/flip-profit-sort-options');
+  return data;
+};
+
+export const getRoyalFlipSortOptions = async (): Promise<SortOption[]> => {
+  const { data } = await api.get<SortOption[]>('/api/enums/royal-flip-sort-options');
+  return data;
+};
+
+/** royalPath: BO = listino → buy order; SO = listino → sell listino. Backend: 6 mercati, senza Caerleon. */
+export const getRoyalContinentFlipProfits = async (
+  page: number = 0,
+  size: number = 20,
+  sortBy: string = 'PROFIT',
+  sortDirection: 'ASC' | 'DESC' = 'DESC',
+  nameSearch?: string,
+  royalPath: 'BO' | 'SO' = 'BO'
+): Promise<PageResponse<RoyalContinentFlipResponse>> => {
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection, royalPath };
+  if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
+  const { data } = await api.get<PageResponse<RoyalContinentFlipResponse>>('/api/flip/royal-continent', { params });
+  return data;
+};
+
+export const recomputeRoyalContinentFlip = async (): Promise<{ message: string; itemsStored: number }> => {
+  const { data } = await api.post<{ message: string; itemsStored: number }>('/api/flip/royal-continent/recompute');
   return data;
 };
 
