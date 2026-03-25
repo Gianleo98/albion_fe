@@ -191,6 +191,87 @@ export interface RoyalContinentFlipResponse {
   computedAt: string;
 }
 
+// --- Enchanting (verso .3, Lymhurst) ---
+
+export interface RoyalCityEnchantBuyProfit {
+  cityCode: string;
+  cityLabelIt: string;
+  buyPriceMax3: number;
+  profitBuyOrder: number;
+}
+
+export interface EnchantingProfitResponse {
+  itemId: string;
+  baseItemId: string;
+  tier: number;
+  enchantMaterialQuantity: number;
+  iconUrl: string;
+  sellPrice0: number;
+  /** Costo stimato craft base .0 (Lymhurst); confrontato con sellPrice0 nel percorso FROM_0. */
+  craftCostBase0?: number | null;
+  /** BUY | CRAFT | EQUAL | BUY_ONLY — quale fonte entra nel costo min base .0. */
+  base0CostSource?: string;
+  /** Parte base effettiva nel costo FROM_0 (dopo min mercato vs craft). */
+  base0UsedInCost: number;
+  sellPrice1: number;
+  sellPrice2: number;
+  sellPrice3: number;
+  runeUnitPrice: number;
+  soulUnitPrice: number;
+  relicUnitPrice: number;
+  profitFrom0: number | null;
+  profitFrom1: number | null;
+  profitFrom2: number | null;
+  profitBuy3: number | null;
+  costFrom0: number | null;
+  costFrom1: number | null;
+  costFrom2: number | null;
+  costBuy3: number;
+  enchantVersusBuySilver: number | null;
+  bestPath: string;
+  bestPathLabelIt: string;
+  bestProfit: number;
+  /** Classifica profitto vendendo .3 ai buy order (royal, no Caerleon), migliore per prima */
+  royalBuyOrderRank?: RoyalCityEnchantBuyProfit[];
+  bestProfitBuyOrder?: number | null;
+  bestProfitBuyOrderCityIt?: string | null;
+}
+
+export interface EnchantmentMaterialStripResponse {
+  itemId: string;
+  /** RUNE | SOUL | RELIC; se assente si deduce da itemId. */
+  materialKind?: string;
+  sellPriceMin: number;
+  iconUrl: string;
+  updatedAt: string;
+}
+
+export interface SavedEnchantingItemResponse {
+  itemId: string;
+  baseItemId: string;
+  tier: number;
+  iconUrl: string | null;
+  currentDataMissing?: boolean;
+  bestPath: string;
+  bestPathLabelIt: string;
+  bestProfit: number;
+  listedForSale?: boolean;
+  sellAvailability?: string;
+  sellAvailabilityLabel?: string;
+  stockAvailability?: string;
+  stockAvailabilityLabel?: string;
+  sellAvailabilityRank?: number;
+  stockAvailabilityRank?: number;
+  profitSortKey?: number;
+  savedBestProfit: number;
+  savedBestPath: string;
+  savedAt: string;
+  savedSellPrice3: number;
+  currentBestProfit: number;
+  currentSellPrice3: number;
+  profitDiff: number;
+}
+
 // --- Focus Profit (crafting con focus, mercato Lymhurst) ---
 
 export interface FocusProfitResponse {

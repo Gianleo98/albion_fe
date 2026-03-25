@@ -16,6 +16,9 @@ import type {
   FlipProfitResponse,
   RoyalContinentFlipResponse,
   SavedItemTrackingPayload,
+  EnchantingProfitResponse,
+  EnchantmentMaterialStripResponse,
+  SavedEnchantingItemResponse,
 } from '../types';
 
 const PRIMARY_BASE_URL = 'http://janraion.ddns.net:1997';
@@ -273,6 +276,73 @@ export const patchSavedFocusTracking = async (
 ): Promise<SavedFocusItemResponse> => {
   const { data } = await api.patch<SavedFocusItemResponse>(
     `/api/saved-focus-items/${encodeURIComponent(itemId)}/tracking`,
+    payload
+  );
+  return data;
+};
+
+// --- Enchanting ---
+
+export const getEnchantingProfits = async (
+  page: number = 0,
+  size: number = 20,
+  sortBy: string = 'BEST_PROFIT',
+  sortDirection: 'ASC' | 'DESC' = 'DESC',
+  nameSearch?: string
+): Promise<PageResponse<EnchantingProfitResponse>> => {
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
+  if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
+  const { data } = await api.get<PageResponse<EnchantingProfitResponse>>('/api/enchanting-profit', { params });
+  return data;
+};
+
+export const getEnchantingProfitSortOptions = async (): Promise<SortOption[]> => {
+  const { data } = await api.get<SortOption[]>('/api/enums/enchanting-profit-sort-options');
+  return data;
+};
+
+export const getEnchantmentMaterialsStrip = async (): Promise<EnchantmentMaterialStripResponse[]> => {
+  const { data } = await api.get<EnchantmentMaterialStripResponse[]>(
+    '/api/enchanting-profit/enchantment-materials-strip',
+  );
+  return data;
+};
+
+export const getSavedEnchantingItemIds = async (): Promise<string[]> => {
+  const { data } = await api.get<string[]>('/api/saved-enchanting-items/ids');
+  return data;
+};
+
+export const saveEnchantingItem = async (itemId: string): Promise<void> => {
+  await api.post('/api/saved-enchanting-items', { itemId });
+};
+
+export const deleteSavedEnchantingItem = async (itemId: string): Promise<void> => {
+  await api.delete(`/api/saved-enchanting-items/${encodeURIComponent(itemId)}`);
+};
+
+export const getSavedEnchantingItemsWithCurrent = async (): Promise<SavedEnchantingItemResponse[]> => {
+  const { data } = await api.get<SavedEnchantingItemResponse[]>('/api/saved-enchanting-items');
+  return data;
+};
+
+export const getSavedEnchantingItemDetail = async (itemId: string): Promise<SavedEnchantingItemResponse | null> => {
+  try {
+    const { data } = await api.get<SavedEnchantingItemResponse>(
+      `/api/saved-enchanting-items/${encodeURIComponent(itemId)}`
+    );
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const patchSavedEnchantingTracking = async (
+  itemId: string,
+  payload: SavedItemTrackingPayload
+): Promise<SavedEnchantingItemResponse> => {
+  const { data } = await api.patch<SavedEnchantingItemResponse>(
+    `/api/saved-enchanting-items/${encodeURIComponent(itemId)}/tracking`,
     payload
   );
   return data;

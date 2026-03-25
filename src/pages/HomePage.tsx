@@ -1,18 +1,34 @@
 import { useCallback, useRef, useState } from 'react';
 import {
+  IonButton,
+  IonCard,
+  IonCardContent,
   IonContent,
   IonIcon,
   IonPage,
   IonSpinner,
   IonRefresher,
   IonRefresherContent,
+  IonText,
+  useIonToast,
   useIonViewWillEnter,
 } from '@ionic/react';
 import { funnelOutline, funnel, timeOutline } from 'ionicons/icons';
-import { getMaterialPrices } from '../services/api';
-import type { MaterialPriceResponse } from '../types';
+import { getMaterialPrices, getEnchantmentMaterialsStrip } from '../services/api';
+import {
+  DAILY_REMINDER_HOUR,
+  DAILY_REMINDER_MINUTE,
+  getNotificationPermissionStatus,
+  isNativeNotificationsAvailable,
+  requestNotificationPermission,
+  syncAlbionDailyReminder,
+} from '../services/albionNotifications';
+import { refreshFlipHighProfitAlerts } from '../services/flipHighProfitNotify';
+import type { EnchantmentMaterialStripResponse, MaterialPriceResponse } from '../types';
 import AppHeader from '../components/AppHeader';
 import './HomePage.css';
+
+const NOTIF_DISMISS_KEY = 'albus_notif_prompt_dismissed';
 
 const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT', 'CREST'];
 
@@ -23,6 +39,14 @@ const MATERIAL_LABELS: Record<string, string> = {
   METALBAR: 'Metal Bar',
   ARTEFACT: 'Artefact',
   CREST: 'Crest',
+};
+
+const ENCHANT_MATERIAL_ORDER = ['RUNE', 'SOUL', 'RELIC'] as const;
+
+const ENCHANT_MATERIAL_LABELS: Record<string, string> = {
+  RUNE: 'Rune',
+  SOUL: 'Soul',
+  RELIC: 'Relic',
 };
 
 const formatPrice = (price: number) =>
@@ -42,6 +66,32 @@ const groupByMaterial = (prices: MaterialPriceResponse[]) => {
     groups[p.materialType].push(p);
   }
   return groups;
+};
+
+const enchantKindFromRow = (r: EnchantmentMaterialStripResponse) => {
+  if (r.materialKind) return r.materialKind;
+  const m = r.itemId.match(/_(RUNE|SOUL|RELIC)$/);
+  return m ? m[1] : 'RUNE';
+};
+
+const groupByEnchantKind = (rows: EnchantmentMaterialStripResponse[]) => {
+  const groups: Record<string, EnchantmentMaterialStripResponse[]> = {};
+  for (const r of rows) {
+    const k = enchantKindFromRow(r);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  }
+  for (const k of Object.keys(groups)) {
+    groups[k].sort((a, b) => a.itemId.localeCompare(b.itemId));
+  }
+  return groups;
+};
+
+/** Media listino della riga (T5–T8); usata per colore e filtro (non c’è media 7g sui mercati royal). */
+const enchantRowAvg = (items: EnchantmentMaterialStripResponse[]): number => {
+  const vals = items.map((i) => i.sellPriceMin).filter((v) => v > 0);
+  if (vals.length === 0) return 0;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
 };
 
 const useDragScroll = () => {
@@ -73,10 +123,14 @@ const useDragScroll = () => {
 };
 
 const HomePage: React.FC = () => {
+  const [presentToast] = useIonToast();
   const [prices, setPrices] = useState<MaterialPriceResponse[]>([]);
+  const [enchantStrip, setEnchantStrip] = useState<EnchantmentMaterialStripResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterBelow, setFilterBelow] = useState<Record<string, boolean>>({});
+  const [notifBanner, setNotifBanner] = useState<'off' | 'prompt' | 'denied'>('off');
+  const [enablingNotif, setEnablingNotif] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -84,6 +138,12 @@ const HomePage: React.FC = () => {
       setLoading(true);
       const pricesData = await getMaterialPrices();
       setPrices(pricesData);
+      try {
+        const rows = await getEnchantmentMaterialsStrip();
+        setEnchantStrip(rows);
+      } catch {
+        setEnchantStrip([]);
+      }
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
@@ -96,9 +156,69 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const refreshNotificationBanner = useCallback(async () => {
+    const native = await isNativeNotificationsAvailable();
+    if (!native) {
+      setNotifBanner('off');
+      return;
+    }
+    const status = await getNotificationPermissionStatus();
+    if (status === 'granted') {
+      setNotifBanner('off');
+      return;
+    }
+    if (localStorage.getItem(NOTIF_DISMISS_KEY) === '1') {
+      setNotifBanner('off');
+      return;
+    }
+    setNotifBanner(status === 'denied' ? 'denied' : 'prompt');
+  }, []);
+
   useIonViewWillEnter(() => {
     void fetchData();
+    void refreshNotificationBanner();
   });
+
+  const onEnableNotifications = async () => {
+    setEnablingNotif(true);
+    try {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        localStorage.removeItem(NOTIF_DISMISS_KEY);
+        setNotifBanner('off');
+        try {
+          await syncAlbionDailyReminder();
+          await refreshFlipHighProfitAlerts();
+        } catch {
+          /* offline / API */
+        }
+        presentToast({
+          message: 'Notifiche attivate',
+          duration: 2000,
+          color: 'success',
+          position: 'top',
+        });
+        return;
+      }
+      const after = await getNotificationPermissionStatus();
+      setNotifBanner(after === 'denied' ? 'denied' : 'prompt');
+      presentToast({
+        message: 'Permesso non concesso. Puoi attivarlo dalle impostazioni del dispositivo.',
+        duration: 3200,
+        color: 'warning',
+        position: 'top',
+      });
+    } finally {
+      setEnablingNotif(false);
+    }
+  };
+
+  const onDismissNotifBanner = () => {
+    localStorage.setItem(NOTIF_DISMISS_KEY, '1');
+    setNotifBanner('off');
+  };
+
+  const notifTimeLabel = `${String(DAILY_REMINDER_HOUR).padStart(2, '0')}:${String(DAILY_REMINDER_MINUTE).padStart(2, '0')}`;
 
   const handleRefresh = async (event: CustomEvent) => {
     await fetchData();
@@ -108,6 +228,7 @@ const HomePage: React.FC = () => {
   const drag = useDragScroll();
   const homePrices = prices.filter((p) => p.materialType !== 'HEART');
   const grouped = groupByMaterial(homePrices);
+  const groupedEnchant = groupByEnchantKind(enchantStrip);
   const lastUpdate = homePrices.length > 0 ? homePrices[0].updatedAt : null;
 
   return (
@@ -119,6 +240,45 @@ const HomePage: React.FC = () => {
         </IonRefresher>
 
         <div className="home-container">
+          {notifBanner !== 'off' && (
+            <div className="albus-notif-banner-wrap">
+              <IonCard className="albus-notif-banner">
+                <IonCardContent>
+                  <IonText>
+                    <h2 className="albus-notif-banner__title">Notifiche Albus</h2>
+                    <p className="albus-notif-banner__text">
+                      {notifBanner === 'denied' ? (
+                        <>
+                          Le notifiche sono disattivate. Per un promemoria ogni mattina alle{' '}
+                          <strong>{notifTimeLabel}</strong> e avvisi sugli <strong>Flip</strong> a alto profitto (anche
+                          con l’app chiusa), attivale dalle impostazioni di sistema o riprova qui sotto.
+                        </>
+                      ) : (
+                        <>
+                          Attiva le notifiche: promemoria giornaliero alle <strong>{notifTimeLabel}</strong> e avvisi
+                          quando un <strong>Flip</strong> supera la soglia di profitto, anche in background.
+                        </>
+                      )}
+                    </p>
+                  </IonText>
+                  <div className="albus-notif-banner__actions">
+                    <IonButton
+                      size="small"
+                      className="albus-notif-banner__primary"
+                      disabled={enablingNotif}
+                      onClick={() => void onEnableNotifications()}
+                    >
+                      {enablingNotif ? 'Attendere…' : 'Attiva notifiche'}
+                    </IonButton>
+                    <IonButton size="small" fill="clear" disabled={enablingNotif} onClick={onDismissNotifBanner}>
+                      Non ora
+                    </IonButton>
+                  </div>
+                </IonCardContent>
+              </IonCard>
+            </div>
+          )}
+
           <header className="home-hero">
             <img
               src="/assets/logo_homepage.png"
@@ -203,6 +363,77 @@ const HomePage: React.FC = () => {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Rune / Soul / Relic T5–T8 (ultima sezione, come le altre strip + filtro) */}
+          {!loading && !error && enchantStrip.length > 0 && (
+            <div className="home-enchant-block">
+              {ENCHANT_MATERIAL_ORDER.map((kind) => {
+                const allItems = groupedEnchant[kind];
+                if (!allItems || allItems.length === 0) return null;
+                const rowAvg = enchantRowAvg(allItems);
+                const isFiltered = !!filterBelow[kind];
+                const items = isFiltered
+                  ? allItems.filter(
+                      (i) => i.sellPriceMin > 0 && rowAvg > 0 && i.sellPriceMin < rowAvg,
+                    )
+                  : allItems;
+                return (
+                  <section key={kind} className="home-section home-section--enchant-row">
+                    <div className="home-section-head">
+                      <span className="home-section-name">
+                        {ENCHANT_MATERIAL_LABELS[kind] ?? kind} · T5–T8
+                      </span>
+                      <button
+                        type="button"
+                        className={`home-filter ${isFiltered ? 'home-filter--on' : ''}`}
+                        onClick={() => setFilterBelow((prev) => ({ ...prev, [kind]: !prev[kind] }))}
+                        title="Solo sotto la media di questa riga (listino)"
+                        aria-label="Filtra sotto media riga"
+                      >
+                        <IonIcon icon={isFiltered ? funnel : funnelOutline} />
+                      </button>
+                    </div>
+                    <div
+                      className="home-scroll"
+                      onPointerDown={drag.onPointerDown}
+                      onPointerMove={drag.onPointerMove}
+                      onPointerUp={drag.onPointerUp}
+                      onPointerCancel={drag.onPointerUp}
+                    >
+                      {items.length === 0 ? (
+                        <span className="home-empty-hint">Nessun item sotto la media</span>
+                      ) : (
+                        items.map((item) => (
+                          <div key={item.itemId} className="home-tile" title={item.itemId}>
+                            {item.iconUrl && (
+                              <img
+                                src={item.iconUrl}
+                                alt=""
+                                className="home-tile-icon"
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            )}
+                            <span
+                              className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, rowAvg)}`}
+                            >
+                              {formatPrice(item.sellPriceMin)}
+                            </span>
+                            <span className="home-tile-7g">
+                              <IonIcon icon={timeOutline} aria-hidden />
+                              {rowAvg > 0 ? formatPrice(Math.round(rowAvg)) : '—'}
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </section>
                 );

@@ -10,12 +10,13 @@ import {
   setupIonicReact,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { homeOutline, storefrontOutline, flashOutline, swapHorizontalOutline } from 'ionicons/icons';
+import { homeOutline, storefrontOutline, flashOutline, swapHorizontalOutline, sparklesOutline } from 'ionicons/icons';
 
 import HomePage from './pages/HomePage';
 import BlackMarketPage from './pages/BlackMarketPage';
 import FocusPage from './pages/FocusPage';
 import FlipPage from './pages/FlipPage';
+import EnchantingPage from './pages/EnchantingPage';
 import { NativeFlipAlerts } from './components/NativeFlipAlerts';
 
 /* Core CSS required for Ionic components to work properly */
@@ -61,6 +62,9 @@ const App: React.FC = () => (
           <Route exact path="/flip">
             <FlipPage />
           </Route>
+          <Route exact path="/enchanting">
+            <EnchantingPage />
+          </Route>
           <Route exact path="/">
             <Redirect to="/home" />
           </Route>
@@ -82,6 +86,10 @@ const App: React.FC = () => (
           <IonTabButton tab="flip" href="/flip">
             <IonIcon icon={swapHorizontalOutline} />
             <IonLabel>Flip</IonLabel>
+          </IonTabButton>
+          <IonTabButton tab="enchanting" href="/enchanting">
+            <IonIcon icon={sparklesOutline} />
+            <IonLabel>Enchanting</IonLabel>
           </IonTabButton>
         </IonTabBar>
       </IonTabs>

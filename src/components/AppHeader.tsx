@@ -18,7 +18,16 @@ import {
   useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
-import { settingsOutline, layersOutline, storefrontOutline, hammerOutline, flashOutline, checkmarkCircleOutline, globeOutline } from 'ionicons/icons';
+import {
+  settingsOutline,
+  layersOutline,
+  storefrontOutline,
+  hammerOutline,
+  flashOutline,
+  checkmarkCircleOutline,
+  globeOutline,
+  sparklesOutline,
+} from 'ionicons/icons';
 import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerRoyalContinentUpdate, triggerFocusProfitUpdate, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
 import type { RateLimitStatus, CraftingBonusResponse, CraftingSettingsResponse } from '../types';
 import './AppHeader.css';
@@ -28,6 +37,8 @@ interface AppHeaderProps {
   onCraftingUpdated?: () => void;
   onFocusUpdated?: () => void;
   onFlipUpdated?: () => void;
+  /** Dopo aggiornamento mercati royal (stesso job di Royal Continent), ricarica lista enchanting */
+  onEnchantingUpdated?: () => void;
   lastUpdate?: string | null;
 }
 
@@ -41,7 +52,14 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpdated, onFocusUpdated, onFlipUpdated, lastUpdate }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({
+  onMaterialsUpdated,
+  onCraftingUpdated,
+  onFocusUpdated,
+  onFlipUpdated,
+  onEnchantingUpdated,
+  lastUpdate,
+}) => {
   const history = useHistory();
   const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -51,7 +69,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
   const [updatingRoyalContinent, setUpdatingRoyalContinent] = useState(false);
   const [updatingFocus, setUpdatingFocus] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
-    'materials' | 'blackmarket' | 'craftingProfit' | 'royal' | 'focus' | null
+    'materials' | 'blackmarket' | 'craftingProfit' | 'royal' | 'enchanting' | 'focus' | null
   >(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [craftingBonuses, setCraftingBonuses] = useState<CraftingBonusResponse | null>(null);
@@ -91,13 +109,15 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
       const updated = await updateCraftingSettings(premium);
       setCraftingSettings(updated);
       presentToast({
-        message: `Tassa vendita: ${premium ? '4%' : '8%'}. Esegui «Ricalcola Black Market» (profitti) per applicare.`,
-        duration: 2800,
+        message: `Tassa vendita: ${premium ? '4%' : '8%'}. BM/Flip: «Ricalcola Black Market». Enchanting/Focus: ricarica le liste.`,
+        duration: 3000,
         color: 'success',
         position: 'top',
       });
       onCraftingUpdated?.();
       onFlipUpdated?.();
+      onFocusUpdated?.();
+      onEnchantingUpdated?.();
     } catch {
       presentToast({ message: 'Errore nel salvataggio.', duration: 2500, color: 'danger', position: 'top' });
     } finally {
@@ -224,6 +244,32 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
     }
   };
 
+  const handleRecalcEnchanting = async () => {
+    setConfirmAction(null);
+    setUpdatingRoyalContinent(true);
+    try {
+      const result = await triggerRoyalContinentUpdate();
+      presentToast({
+        message: `Enchanting: mercati royal aggiornati (~${result.priceRowsWritten} prezzi). Sell order (Lymhurst) e buy order (royal) ricalcolati.`,
+        duration: 5000,
+        color: 'success',
+        position: 'top',
+      });
+      onEnchantingUpdated?.();
+      onFocusUpdated?.();
+      onFlipUpdated?.();
+    } catch {
+      presentToast({
+        message: 'Errore ricalcolo enchanting (stesso aggiornamento Royal Continent). Riprova tra qualche minuto.',
+        duration: 4000,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setUpdatingRoyalContinent(false);
+    }
+  };
+
   const handleUpdateFocus = async () => {
     setConfirmAction(null);
     setUpdatingFocus(true);
@@ -337,6 +383,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
           <IonItem
             button
             detail={false}
+            disabled={updatingRoyalContinent}
+            onClick={() => {
+              setPopoverOpen(false);
+              setConfirmAction('enchanting');
+            }}
+          >
+            {updatingRoyalContinent
+              ? <IonSpinner name="dots" slot="start" />
+              : <IonIcon icon={sparklesOutline} slot="start" />}
+            <IonLabel>Ricalcola Enchanting</IonLabel>
+          </IonItem>
+          <IonItem
+            button
+            detail={false}
             disabled={updatingFocus}
             onClick={() => {
               setPopoverOpen(false);
@@ -415,7 +475,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
               <div className="settings-toggle-content">
                 <span className="settings-toggle-title">Account Premium</span>
                 <span className="settings-toggle-subtitle">
-                  {craftingSettings?.premium ? 'Tassa 4%' : 'Tassa 8%'} · anche vendita BM (Flip)
+                  {craftingSettings?.premium ? 'Tassa 4%' : 'Tassa 8%'} · BM, Flip, Focus, Enchanting
                 </span>
               </div>
               <div className="settings-toggle-control">
@@ -507,6 +567,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMaterialsUpdated, onCraftingUpd
         buttons={[
           { text: 'Annulla', role: 'cancel' },
           { text: 'Ricalcola', handler: handleUpdateFocus },
+        ]}
+      />
+
+      <IonAlert
+        isOpen={confirmAction === 'enchanting'}
+        onDidDismiss={() => setConfirmAction(null)}
+        header="Ricalcola Enchanting"
+        message="Scarica i prezzi royal (Lymhurst + altre città per i buy order), come «Aggiorna Royal Continent». Poi la tab Enchanting userà i dati aggiornati. Può richiedere diversi minuti."
+        buttons={[
+          { text: 'Annulla', role: 'cancel' },
+          { text: 'Avvia', handler: handleRecalcEnchanting },
         ]}
       />
 

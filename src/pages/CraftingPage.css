@@ -38,6 +38,30 @@
   --padding-bottom: 10px;
 }
 
+/* Enchanting: ricerca 3/5, filtro tier 2/5 */
+.cp-search-row--tier-split .cp-search-item:first-child {
+  flex: 3 1 0;
+  min-width: 0;
+}
+
+.cp-search-row--tier-split .cp-search-item:last-child {
+  flex: 2 1 0;
+  min-width: 0;
+  max-width: 40%;
+}
+
+.cp-search-row--tier-split .cp-search-item:last-child ion-label {
+  flex: 0 0 auto;
+  margin-inline-end: 2px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.cp-search-row--tier-split .cp-search-item:last-child ion-select {
+  max-width: 100%;
+  min-width: 0;
+}
+
 .cp-filter-below-btn {
   display: inline-flex;
   align-items: center;
@@ -114,6 +138,19 @@
   --padding-start: 8px;
   --inner-padding-end: 10px;
   --min-height: 80px;
+}
+
+.cp-item--enchant {
+  --min-height: auto;
+  align-items: flex-start;
+}
+
+.cp-item--enchant ion-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .cp-item-left {
@@ -250,6 +287,102 @@
 .cp-rrr {
   font-size: 0.68rem;
   color: var(--ion-color-medium);
+}
+
+/* Enchanting: costo base + materiali per percorso migliore */
+.cp-enchant-breakdown {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ion-color-step-50, rgba(255, 255, 255, 0.06));
+  font-size: 0.72rem;
+  line-height: 1.5;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.cp-enchant-breakdown__title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ion-color-medium);
+  margin-bottom: 6px;
+}
+
+.cp-enchant-breakdown__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-enchant-breakdown__label-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cp-enchant-breakdown__label-text {
+  min-width: 0;
+}
+
+.cp-enchant-breakdown__icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.cp-enchant-breakdown__row + .cp-enchant-breakdown__row {
+  margin-top: 3px;
+}
+
+.cp-enchant-breakdown__label {
+  color: var(--ion-color-medium);
+  flex: 1;
+  min-width: 0;
+  padding-right: 6px;
+}
+
+.cp-enchant-breakdown__val {
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cp-enchant-breakdown__sub {
+  font-size: 0.68rem;
+  color: var(--ion-color-medium);
+  opacity: 0.9;
+}
+
+.cp-enchant-breakdown__row--sum {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ion-color-step-150, rgba(255, 255, 255, 0.1));
+  font-weight: 600;
+}
+
+.cp-enchant-breakdown__row--sum .cp-enchant-breakdown__label,
+.cp-enchant-breakdown__row--sum .cp-enchant-breakdown__val {
+  color: var(--ion-text-color, #fff);
+}
+
+/* Prezzo vs media lista (stessi colori della Home) */
+.cp-price-vs-avg--below {
+  color: #5ee9b5;
+}
+
+.cp-price-vs-avg--above {
+  color: #f0a0a8;
+}
+
+.cp-price-vs-avg--neutral {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .cp-saved-badge {
@@ -541,6 +674,40 @@
   align-items: flex-end;
   gap: 2px;
   min-width: 90px;
+}
+
+.cp-profit-col--enchant {
+  min-width: 118px;
+  max-width: 42%;
+}
+
+.cp-enchant-profit-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ion-color-medium);
+  margin-top: 6px;
+  align-self: flex-end;
+}
+
+.cp-profit-col--enchant > .cp-enchant-profit-label:first-of-type {
+  margin-top: 0;
+}
+
+.cp-enchant-buy-rank {
+  margin: 4px 0 0;
+  padding: 0 0 0 1em;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: var(--ion-color-medium);
+  text-align: right;
+  list-style-position: outside;
+  max-width: 100%;
+}
+
+.cp-enchant-buy-rank li {
+  margin: 0;
 }
 
 .cp-profit {

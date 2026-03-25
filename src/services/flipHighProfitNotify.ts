@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { LocalNotifications, type Schedule } from '@capacitor/local-notifications';
 import type { FlipProfitResponse } from '../types';
 import { getFlipProfits } from './api';
+import { getNotificationPermissionStatus } from './albionNotifications';
 
 /** Soglia profitto Flip (Caerleon → BM) per l'avviso su dispositivo nativo */
 export const FLIP_PROFIT_ALERT_THRESHOLD = 100_000;
@@ -76,11 +77,9 @@ async function notifyFlipHighProfitsIfNeeded(items: FlipProfitResponse[]): Promi
   const high = items.filter((i) => i.profit > FLIP_PROFIT_ALERT_THRESHOLD);
   if (high.length === 0) return;
 
-  let perm = await LocalNotifications.checkPermissions();
-  if (perm.display !== 'granted') {
-    perm = await LocalNotifications.requestPermissions();
+  if ((await getNotificationPermissionStatus()) !== 'granted') {
+    return;
   }
-  if (perm.display !== 'granted') return;
 
   await ensureAndroidChannel();
 
@@ -90,7 +89,7 @@ async function notifyFlipHighProfitsIfNeeded(items: FlipProfitResponse[]): Promi
     id: number;
     title: string;
     body: string;
-    schedule: { at: Date };
+    schedule: Schedule;
     channelId?: string;
   }[] = [];
 
@@ -104,7 +103,7 @@ async function notifyFlipHighProfitsIfNeeded(items: FlipProfitResponse[]): Promi
       id: notificationIdForItem(item.itemId),
       title: 'Albus — Flip: profitto alto',
       body: `${shortFlipLabel(item.itemId)} · +${profitStr}`,
-      schedule: { at: new Date(now + 600 + slot * 750) },
+      schedule: { at: new Date(now + 600 + slot * 750), allowWhileIdle: true },
       channelId: Capacitor.getPlatform() === 'android' ? CHANNEL_ID : undefined,
     });
     slot += 1;
