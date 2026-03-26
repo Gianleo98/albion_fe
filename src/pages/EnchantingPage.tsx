@@ -404,6 +404,7 @@ const EnchantingPage: React.FC = () => {
   const [nameSearch, setNameSearch] = useState('');
   const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean } | null>(null);
   const [detailItem, setDetailItem] = useState<SavedEnchantingItemResponse | null>(null);
+  const [detailBasicItem, setDetailBasicItem] = useState<EnchantingProfitResponse | null>(null);
   const [trListed, setTrListed] = useState(false);
   const [trSell, setTrSell] = useState<AvailabilityLevelCode>('NONE');
   const [trStock, setTrStock] = useState<AvailabilityLevelCode>('NONE');
@@ -549,6 +550,22 @@ const EnchantingPage: React.FC = () => {
     if (listMode !== 'saved') return;
     const detail = await getSavedEnchantingItemDetail(itemId);
     if (detail) setDetailItem(detail);
+  };
+
+  const openEnchantDetailForItem = async (item: EnchantingProfitResponse) => {
+    // Se l'item è già salvato, apriamo il dettaglio “salvato” (con note/track).
+    if (savedItemIds.has(item.itemId)) {
+      const detail = await getSavedEnchantingItemDetail(item.itemId);
+      if (detail) {
+        setDetailItem(detail);
+        setDetailBasicItem(item);
+        return;
+      }
+    }
+
+    // Altrimenti: dettaglio “base” (solo breakdown/profitti).
+    setDetailBasicItem(item);
+    setDetailItem(null);
   };
 
   const saveEnchantingTracking = async () => {
@@ -715,7 +732,11 @@ const EnchantingPage: React.FC = () => {
                               slidingRefs.current[item.itemId] = el;
                             }}
                           >
-                            <IonItem className="cp-item cp-item--enchant">
+                            <IonItem
+                              className="cp-item cp-item--enchant"
+                              button
+                              onClick={() => void openEnchantDetailForItem(item)}
+                            >
                               <div className="cp-item-left" slot="start">
                                 <img
                                   src={item.iconUrl}
@@ -738,7 +759,6 @@ const EnchantingPage: React.FC = () => {
                                   )}
                                   {isSaved && <span className="cp-saved-badge">Salvato</span>}
                                 </div>
-                                <EnchantPathCostBreakdown item={item} priceAvgs={enchantPriceAvgs} />
                               </IonLabel>
                               <div slot="end" className="cp-profit-col cp-profit-col--enchant">
                                 <span className="cp-enchant-profit-label">Sell order</span>
@@ -930,7 +950,126 @@ const EnchantingPage: React.FC = () => {
           ]}
         />
 
-        <IonModal isOpen={!!detailItem} onDidDismiss={() => setDetailItem(null)}>
+        <IonModal
+          isOpen={!!detailBasicItem}
+          onDidDismiss={() => {
+            setDetailBasicItem(null);
+            setDetailItem(null);
+          }}
+          className="cp-detail-modal craft-detail-modal"
+        >
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>{detailBasicItem ? cleanItemName(detailBasicItem.itemId) : ''}</IonTitle>
+              <IonButtons slot="end">
+                <IonButton
+                  onClick={() => {
+                    setDetailBasicItem(null);
+                    setDetailItem(null);
+                  }}
+                  fill="clear"
+                >
+                  Chiudi
+                </IonButton>
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+
+          {detailBasicItem && (
+            <IonContent className="ion-padding">
+              <IonCard>
+                <IonCardHeader>
+                  <IonCardTitle>Riepilogo</IonCardTitle>
+                </IonCardHeader>
+                <IonCardContent>
+                  <p style={{ margin: '4px 0' }}>
+                    Percorso: <strong>{detailBasicItem.bestPathLabelIt}</strong> ({detailBasicItem.bestPath})
+                  </p>
+                  <p style={{ margin: '4px 0' }}>
+                    Profitto sell order: <strong>{formatProfitWithSign(detailBasicItem.bestProfit)}</strong>
+                  </p>
+                  <p style={{ margin: '4px 0' }}>
+                    .3 sell min Lymhurst: <strong>{formatPrice(detailBasicItem.sellPrice3)}</strong>
+                  </p>
+                  {detailBasicItem.enchantVersusBuySilver != null && detailBasicItem.enchantVersusBuySilver !== 0 && (
+                    <p style={{ margin: '4px 0' }}>
+                      vs compra .3: <strong>{formatProfitWithSign(detailBasicItem.enchantVersusBuySilver)}</strong>
+                    </p>
+                  )}
+                </IonCardContent>
+              </IonCard>
+
+              <EnchantPathCostBreakdown item={detailBasicItem} priceAvgs={enchantPriceAvgs} />
+
+              {detailItem && (
+                <IonCard style={{ marginTop: 14 }}>
+                  <IonCardHeader>
+                    <IonCardTitle>Tracciamento salvato</IonCardTitle>
+                  </IonCardHeader>
+                  <IonCardContent>
+                    <p style={{ margin: '4px 0' }}>
+                      Percorso al salvataggio: {pathCodeLabel(detailItem.savedBestPath)} ({detailItem.savedBestPath})
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      Profitto al salvataggio: {formatProfitWithSign(detailItem.savedBestProfit)} · Listino .3:{' '}
+                      {formatPrice(detailItem.savedSellPrice3)}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      Ora: profitto {formatProfitWithSign(detailItem.currentBestProfit)} · .3{' '}
+                      {formatPrice(detailItem.currentSellPrice3)}
+                    </p>
+
+                    <IonItem lines="none">
+                      <IonLabel>In vendita</IonLabel>
+                      <IonToggle checked={trListed} onIonChange={(e) => setTrListed(e.detail.checked)} />
+                    </IonItem>
+                    <IonItem>
+                      <IonLabel>Disponibilità vendita</IonLabel>
+                      <IonSelect
+                        value={trSell}
+                        onIonChange={(e) => setTrSell(e.detail.value as AvailabilityLevelCode)}
+                        interface="popover"
+                      >
+                        {AVAIL_OPTIONS.map((o) => (
+                          <IonSelectOption key={o.value} value={o.value}>
+                            {o.label}
+                          </IonSelectOption>
+                        ))}
+                      </IonSelect>
+                    </IonItem>
+                    <IonItem>
+                      <IonLabel>Stock materiali</IonLabel>
+                      <IonSelect
+                        value={trStock}
+                        onIonChange={(e) => setTrStock(e.detail.value as AvailabilityLevelCode)}
+                        interface="popover"
+                      >
+                        {AVAIL_OPTIONS.map((o) => (
+                          <IonSelectOption key={o.value} value={o.value}>
+                            {o.label}
+                          </IonSelectOption>
+                        ))}
+                      </IonSelect>
+                    </IonItem>
+
+                    <IonButton
+                      expand="block"
+                      onClick={() => void saveEnchantingTracking()}
+                      disabled={trackSaving}
+                    >
+                      {trackSaving ? 'Salvataggio…' : 'Salva note'}
+                    </IonButton>
+                  </IonCardContent>
+                </IonCard>
+              )}
+            </IonContent>
+          )}
+        </IonModal>
+
+        <IonModal
+          isOpen={!!detailItem && !detailBasicItem}
+          onDidDismiss={() => setDetailItem(null)}
+        >
           <IonHeader>
             <IonToolbar>
               <IonTitle>Dettaglio salvato</IonTitle>

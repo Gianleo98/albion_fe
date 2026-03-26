@@ -370,7 +370,7 @@ const HomePage: React.FC = () => {
             </div>
           )}
 
-          {/* Rune / Soul / Relic T5–T8 (ultima sezione, come le altre strip + filtro) */}
+          {/* Rune / Soul / Relic (ultima sezione, come le altre strip + filtro) */}
           {!loading && !error && enchantStrip.length > 0 && (
             <div className="home-enchant-block">
               {ENCHANT_MATERIAL_ORDER.map((kind) => {
@@ -387,7 +387,7 @@ const HomePage: React.FC = () => {
                   <section key={kind} className="home-section home-section--enchant-row">
                     <div className="home-section-head">
                       <span className="home-section-name">
-                        {ENCHANT_MATERIAL_LABELS[kind] ?? kind} · T5–T8
+                        {ENCHANT_MATERIAL_LABELS[kind] ?? kind}
                       </span>
                       <button
                         type="button"

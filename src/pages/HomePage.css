@@ -180,6 +180,14 @@
   touch-action: pan-x;
 }
 
+/* Evita che le strisce “ultimo blocco” debordino sui bordi laterali mobile. */
+.home-enchant-block .home-scroll {
+  margin-left: -16px;
+  margin-right: -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
 .home-scroll::-webkit-scrollbar {
   display: none;
 }
@@ -288,6 +296,12 @@
   margin-top: 8px;
   padding-top: 4px;
   border-top: 1px solid var(--home-faint);
+  /* Allineato alle altre strip: stessa “cornice” laterale su mobile. */
+  padding-left: 16px;
+  padding-right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .home-section--enchant-row {
