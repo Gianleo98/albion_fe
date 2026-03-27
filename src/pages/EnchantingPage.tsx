@@ -46,6 +46,7 @@ import {
 } from 'ionicons/icons';
 import {
   getEnchantingProfits,
+  getEnchantingProfitByItemId,
   getEnchantingProfitSortOptions,
   getSavedEnchantingItemIds,
   saveEnchantingItem,
@@ -548,8 +549,14 @@ const EnchantingPage: React.FC = () => {
 
   const openDetail = async (itemId: string) => {
     if (listMode !== 'saved') return;
-    const detail = await getSavedEnchantingItemDetail(itemId);
-    if (detail) setDetailItem(detail);
+    const [detail, curr] = await Promise.all([
+      getSavedEnchantingItemDetail(itemId),
+      getEnchantingProfitByItemId(itemId),
+    ]);
+    if (detail) {
+      setDetailItem(detail);
+      setDetailBasicItem(curr);
+    }
   };
 
   const openEnchantDetailForItem = async (item: EnchantingProfitResponse) => {

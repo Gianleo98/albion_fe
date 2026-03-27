@@ -166,6 +166,43 @@ export interface FlipProfitResponse {
   iconUrl: string | null;
 }
 
+export interface SavedFlipItemResponse {
+  itemId: string;
+  tier: number;
+  iconUrl: string | null;
+  currentDataMissing: boolean;
+  savedProfit: number;
+  savedBmBuy: number;
+  savedCaerleonSell: number;
+  savedAt: string;
+  currentProfit: number;
+  currentBmBuy: number;
+  currentCaerleonSell: number;
+  profitDiff: number;
+}
+
+export interface SavedRoyalFlipItemResponse {
+  itemId: string;
+  path: 'BO' | 'SO' | string;
+  tier: number;
+  iconUrl: string | null;
+  currentDataMissing: boolean;
+  savedProfit: number;
+  savedCost: number;
+  savedDestinationPrice: number;
+  savedRevenueNet: number;
+  savedBuyCity: string | null;
+  savedSellCity: string | null;
+  savedAt: string;
+  currentProfit: number;
+  currentCost: number;
+  currentDestinationPrice: number;
+  currentRevenueNet: number;
+  currentBuyCity: string | null;
+  currentSellCity: string | null;
+  profitDiff: number;
+}
+
 /** Flip tra 6 mercati royal (+ Brecilien), senza Caerleon (tabella pre-calcolata). */
 export interface RoyalContinentFlipResponse {
   itemId: string;

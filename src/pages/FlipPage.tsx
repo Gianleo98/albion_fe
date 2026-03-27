@@ -15,6 +15,11 @@ import {
   IonInput,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
+  IonItemSliding,
+  IonItemOptions,
+  IonItemOption,
+  IonSegment,
+  IonSegmentButton,
   useIonViewWillEnter,
   useIonToast,
 } from '@ionic/react';
@@ -29,6 +34,9 @@ import {
   refreshOutline,
   bagCheckOutline,
   pricetagOutline,
+  bookmarkOutline,
+  trashOutline,
+  listOutline,
 } from 'ionicons/icons';
 import {
   getFlipProfits,
@@ -36,9 +44,23 @@ import {
   getRoyalContinentFlipProfits,
   getRoyalFlipSortOptions,
   recomputeRoyalContinentFlip,
+  getSavedFlipItemIds,
+  saveFlipItem,
+  deleteSavedFlipItem,
+  getSavedFlipItemsWithCurrent,
+  getSavedRoyalFlipItemIds,
+  saveRoyalFlipItem,
+  deleteSavedRoyalFlipItem,
+  getSavedRoyalFlipItemsWithCurrent,
 } from '../services/api';
 import { refreshFlipHighProfitAlerts } from '../services/flipHighProfitNotify';
-import type { FlipProfitResponse, RoyalContinentFlipResponse, SortOption } from '../types';
+import type {
+  FlipProfitResponse,
+  RoyalContinentFlipResponse,
+  SavedFlipItemResponse,
+  SavedRoyalFlipItemResponse,
+  SortOption,
+} from '../types';
 import AppHeader from '../components/AppHeader';
 import './CraftingPage.css';
 
@@ -57,6 +79,7 @@ const cleanItemName = (itemId: string): string => {
 };
 
 type FlipListMode = 'bm' | 'royal';
+type SavedListMode = 'all' | 'saved';
 
 function isRoyalRow(r: FlipProfitResponse | RoyalContinentFlipResponse): r is RoyalContinentFlipResponse {
   return 'boProfit' in r && 'soProfit' in r;
@@ -64,7 +87,12 @@ function isRoyalRow(r: FlipProfitResponse | RoyalContinentFlipResponse): r is Ro
 
 const FlipPage: React.FC = () => {
   const [flipListMode, setFlipListMode] = useState<FlipListMode>('bm');
+  const [savedListMode, setSavedListMode] = useState<SavedListMode>('all');
   const [items, setItems] = useState<(FlipProfitResponse | RoyalContinentFlipResponse)[]>([]);
+  const [savedItems, setSavedItems] = useState<SavedFlipItemResponse[]>([]);
+  const [savedRoyalItems, setSavedRoyalItems] = useState<SavedRoyalFlipItemResponse[]>([]);
+  const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
+  const [savedRoyalItemIds, setSavedRoyalItemIds] = useState<Set<string>>(new Set());
   const [sortOptions, setSortOptions] = useState<SortOption[]>([]);
   const [sortBy, setSortBy] = useState('PROFIT');
   const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
@@ -114,11 +142,16 @@ const FlipPage: React.FC = () => {
         const opts =
           flipListMode === 'bm' ? await getFlipProfitSortOptions() : await getRoyalFlipSortOptions();
         setSortOptions(opts);
+        await fetchSavedIds();
       } catch {
         /* ignore */
       }
       setLoading(true);
-      await fetchItems(0, true);
+      if (savedListMode === 'saved') {
+        await fetchSavedList();
+      } else {
+        await fetchItems(0, true);
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ordinamento gestito da handleSortChange
   }, [flipListMode, royalFlipPath]);
@@ -202,6 +235,35 @@ const FlipPage: React.FC = () => {
     [sortBy, sortDirection, nameSearch, materialsUnderAvg, flipListMode, royalFlipPath]
   );
 
+  const fetchSavedIds = useCallback(async () => {
+    try {
+      if (flipListMode === 'bm') {
+        const ids = await getSavedFlipItemIds();
+        setSavedItemIds(new Set(ids));
+      } else {
+        const ids = await getSavedRoyalFlipItemIds(royalFlipPath);
+        setSavedRoyalItemIds(new Set(ids));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [flipListMode, royalFlipPath]);
+
+  const fetchSavedList = useCallback(async () => {
+    try {
+      if (flipListMode === 'bm') {
+        const list = await getSavedFlipItemsWithCurrent();
+        setSavedItems(list);
+      } else {
+        const list = await getSavedRoyalFlipItemsWithCurrent(royalFlipPath);
+        setSavedRoyalItems(list);
+      }
+    } catch {
+      if (flipListMode === 'bm') setSavedItems([]);
+      else setSavedRoyalItems([]);
+    }
+  }, [flipListMode, royalFlipPath]);
+
   const runRoyalRecompute = useCallback(async () => {
     setRecomputing(true);
     try {
@@ -233,26 +295,48 @@ const FlipPage: React.FC = () => {
       const optionsData =
         flipListMode === 'bm' ? await getFlipProfitSortOptions() : await getRoyalFlipSortOptions();
       setSortOptions(optionsData);
+      await fetchSavedIds();
     } catch {
       /* ignore */
+    }
+    if (savedListMode === 'saved') {
+      await fetchSavedList();
+      setLoading(false);
+      return;
     }
     await fetchItems(0, true);
   };
 
   useIonViewWillEnter(() => {
-    fetchInitial();
+    void fetchInitial();
   });
+
+  useEffect(() => {
+    if (savedListMode !== 'saved') return;
+    setLoading(true);
+    void fetchSavedList().finally(() => setLoading(false));
+  }, [savedListMode, flipListMode, fetchSavedList]);
 
   const handleRefresh = async (e: CustomEvent) => {
     setLoading(true);
-    await fetchItems(0, true);
-    if (flipListMode === 'bm') {
-      void refreshFlipHighProfitAlerts();
+    await fetchSavedIds();
+    if (savedListMode === 'saved') {
+      await fetchSavedList();
+    } else {
+      await fetchItems(0, true);
+      if (flipListMode === 'bm') {
+        void refreshFlipHighProfitAlerts();
+      }
     }
+    setLoading(false);
     (e.target as HTMLIonRefresherElement).complete();
   };
 
   const loadMore = async (e: CustomEvent) => {
+    if (savedListMode === 'saved') {
+      (e.target as HTMLIonInfiniteScrollElement).complete();
+      return;
+    }
     if (!hasMore || loading) {
       (e.target as HTMLIonInfiniteScrollElement).complete();
       return;
@@ -300,16 +384,61 @@ const FlipPage: React.FC = () => {
     }
   };
 
+  const toggleSaveFlip = async (itemId: string) => {
+    const isBm = flipListMode === 'bm';
+    const isSaved = isBm ? savedItemIds.has(itemId) : savedRoyalItemIds.has(itemId);
+    try {
+      if (isSaved) {
+        if (isBm) {
+          await deleteSavedFlipItem(itemId);
+          setSavedItemIds((prev) => {
+            const next = new Set(prev);
+            next.delete(itemId);
+            return next;
+          });
+          setSavedItems((prev) => prev.filter((s) => s.itemId !== itemId));
+        } else {
+          await deleteSavedRoyalFlipItem(itemId, royalFlipPath);
+          setSavedRoyalItemIds((prev) => {
+            const next = new Set(prev);
+            next.delete(itemId);
+            return next;
+          });
+          setSavedRoyalItems((prev) => prev.filter((s) => s.itemId !== itemId));
+        }
+        presentToast({ message: 'Rimosso dai salvati.', duration: 1800, color: 'medium', position: 'top' });
+      } else {
+        if (isBm) {
+          await saveFlipItem(itemId);
+          setSavedItemIds((prev) => new Set(prev).add(itemId));
+        } else {
+          await saveRoyalFlipItem(itemId, royalFlipPath);
+          setSavedRoyalItemIds((prev) => new Set(prev).add(itemId));
+        }
+        presentToast({ message: 'Aggiunto ai salvati.', duration: 1800, color: 'success', position: 'top' });
+        if (savedListMode === 'saved') {
+          await fetchSavedList();
+        }
+      }
+    } catch {
+      presentToast({ message: 'Operazione fallita.', duration: 1800, color: 'danger', position: 'top' });
+    }
+  };
+
   return (
     <IonPage>
       <AppHeader
         onFlipUpdated={() => {
           setLoading(true);
-          void fetchItems(0, true).finally(() => {
-            if (flipListMode === 'bm') {
-              void refreshFlipHighProfitAlerts();
-            }
-          });
+          if (savedListMode === 'saved') {
+            void fetchSavedList().finally(() => setLoading(false));
+          } else {
+            void fetchItems(0, true).finally(() => {
+              if (flipListMode === 'bm') {
+                void refreshFlipHighProfitAlerts();
+              }
+            });
+          }
         }}
       />
       <IonContent fullscreen>
@@ -318,6 +447,19 @@ const FlipPage: React.FC = () => {
         </IonRefresher>
 
         <div className="cp-container">
+          <IonSegment
+            value={savedListMode}
+            onIonChange={(e) => setSavedListMode((e.detail.value as SavedListMode) ?? 'all')}
+            className="cp-segment"
+          >
+            <IonSegmentButton value="all" title="Tutti">
+              <IonIcon icon={listOutline} />
+            </IonSegmentButton>
+            <IonSegmentButton value="saved" title="Salvati">
+              <IonIcon icon={bookmarkOutline} />
+            </IonSegmentButton>
+          </IonSegment>
+
           <div className="cp-search-row">
             <IonItem className="cp-search-item" lines="none">
               <IonIcon icon={searchOutline} slot="start" />
@@ -431,7 +573,7 @@ const FlipPage: React.FC = () => {
             </IonButton>
           </div>
 
-          {!loading && totalElements > 0 && (
+          {!loading && savedListMode === 'all' && totalElements > 0 && (
             <p className="cp-count">
               {totalElements} opportunità
               {flipListMode === 'royal'
@@ -440,6 +582,12 @@ const FlipPage: React.FC = () => {
                   : ' — listino → sell listino'
                 : ''}
             </p>
+          )}
+          {!loading && savedListMode === 'saved' && flipListMode === 'bm' && (
+            <p className="cp-count">{savedItems.length} salvati</p>
+          )}
+          {!loading && savedListMode === 'saved' && flipListMode === 'royal' && (
+            <p className="cp-count">{savedRoyalItems.length} salvati ({royalFlipPath === 'BO' ? 'Buy order' : 'Sell listino'})</p>
           )}
 
           {loading && (
@@ -454,7 +602,7 @@ const FlipPage: React.FC = () => {
             </div>
           )}
 
-          {!loading && !error && items.length === 0 && (
+          {!loading && !error && savedListMode === 'all' && items.length === 0 && (
             <div className="cp-state-container">
               <p>Nessuna opportunità flip trovata.</p>
               {flipListMode === 'bm' ? (
@@ -471,73 +619,243 @@ const FlipPage: React.FC = () => {
             </div>
           )}
 
-          {!loading && !error && items.length > 0 && (
+          {!loading && !error && savedListMode === 'saved' && flipListMode === 'bm' && savedItems.length === 0 && (
+            <div className="cp-state-container">
+              <p>Nessun item salvato.</p>
+              <p>Scorri a sinistra su un item in “Tutti” per salvarlo.</p>
+            </div>
+          )}
+
+          {!loading && !error && savedListMode === 'saved' && flipListMode === 'royal' && savedRoyalItems.length === 0 && (
+            <div className="cp-state-container">
+              <p>Nessun item Royal salvato.</p>
+              <p>Salva dalla lista “Tutti” nel percorso attivo ({royalFlipPath === 'BO' ? 'Buy order' : 'Sell listino'}).</p>
+            </div>
+          )}
+
+          {!loading && !error && savedListMode === 'saved' && flipListMode === 'bm' && savedItems.length > 0 && (
+            <IonList className="cp-list">
+              {savedItems.map((s) => {
+                const profitShow = s.currentDataMissing ? s.savedProfit : s.currentProfit;
+                return (
+                  <IonItemSliding key={s.itemId}>
+                    <IonItem className="cp-item">
+                      <div className="cp-item-left" slot="start">
+                        {s.iconUrl && !failedIcons.has(s.itemId) ? (
+                          <img
+                            src={s.iconUrl}
+                            alt=""
+                            className="cp-item-icon"
+                            loading="lazy"
+                            onError={() => setFailedIcons((prev) => new Set(prev).add(s.itemId))}
+                          />
+                        ) : (
+                          <div
+                            className="cp-item-icon"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: 'var(--ion-color-step-150)',
+                              fontSize: 10,
+                            }}
+                          >
+                            T{s.tier}
+                          </div>
+                        )}
+                      </div>
+                      <IonLabel>
+                        <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
+                        <div className="cp-meta">
+                          <span>T{s.tier}</span>
+                          {s.currentDataMissing ? (
+                            <span className="cp-rrr"> · Dati al salvataggio</span>
+                          ) : (
+                            <>
+                              <span className="cp-rrr"> · BM ora {formatPrice(s.currentBmBuy)}</span>
+                              <span className="cp-rrr"> · Caer ora {formatPrice(s.currentCaerleonSell)}</span>
+                            </>
+                          )}
+                        </div>
+                        {!s.currentDataMissing && s.profitDiff !== 0 && (
+                          <div className={s.profitDiff > 0 ? 'cp-profit positive' : 'cp-profit negative'}>
+                            {s.profitDiff > 0 ? '+' : ''}
+                            {formatPrice(s.profitDiff)} vs salvataggio
+                          </div>
+                        )}
+                      </IonLabel>
+                      <div slot="end" className="cp-profit-col">
+                        <span className={`cp-profit ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                          {profitShow >= 0 ? '+' : ''}
+                          {formatPrice(profitShow)}
+                        </span>
+                      </div>
+                    </IonItem>
+                    <IonItemOptions side="end">
+                      <IonItemOption color="danger" onClick={() => void toggleSaveFlip(s.itemId)}>
+                        <IonIcon icon={trashOutline} slot="start" />
+                        Rimuovi
+                      </IonItemOption>
+                    </IonItemOptions>
+                  </IonItemSliding>
+                );
+              })}
+            </IonList>
+          )}
+
+          {!loading && !error && savedListMode === 'saved' && flipListMode === 'royal' && savedRoyalItems.length > 0 && (
+            <IonList className="cp-list">
+              {savedRoyalItems.map((s) => {
+                const profitShow = s.currentDataMissing ? s.savedProfit : s.currentProfit;
+                return (
+                  <IonItemSliding key={s.itemId}>
+                    <IonItem className="cp-item">
+                      <div className="cp-item-left" slot="start">
+                        {s.iconUrl && !failedIcons.has(s.itemId) ? (
+                          <img
+                            src={s.iconUrl}
+                            alt=""
+                            className="cp-item-icon"
+                            loading="lazy"
+                            onError={() => setFailedIcons((prev) => new Set(prev).add(s.itemId))}
+                          />
+                        ) : (
+                          <div
+                            className="cp-item-icon"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: 'var(--ion-color-step-150)',
+                              fontSize: 10,
+                            }}
+                          >
+                            T{s.tier}
+                          </div>
+                        )}
+                      </div>
+                      <IonLabel>
+                        <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
+                        <div className="cp-meta">
+                          <span>T{s.tier}</span>
+                          <span className="cp-rrr"> · {s.path === 'BO' ? 'Buy order' : 'Sell listino'}</span>
+                          {s.currentDataMissing ? (
+                            <span className="cp-rrr"> · Dati al salvataggio</span>
+                          ) : (
+                            <>
+                              <span className="cp-rrr"> · {s.currentBuyCity} → {s.currentSellCity}</span>
+                              <span className="cp-rrr"> · Netto {formatPrice(s.currentRevenueNet)}</span>
+                            </>
+                          )}
+                        </div>
+                        {!s.currentDataMissing && s.profitDiff !== 0 && (
+                          <div className={s.profitDiff > 0 ? 'cp-profit positive' : 'cp-profit negative'}>
+                            {s.profitDiff > 0 ? '+' : ''}
+                            {formatPrice(s.profitDiff)} vs salvataggio
+                          </div>
+                        )}
+                      </IonLabel>
+                      <div slot="end" className="cp-profit-col">
+                        <span className={`cp-profit ${profitShow >= 0 ? 'positive' : 'negative'}`}>
+                          {profitShow >= 0 ? '+' : ''}
+                          {formatPrice(profitShow)}
+                        </span>
+                      </div>
+                    </IonItem>
+                    <IonItemOptions side="end">
+                      <IonItemOption color="danger" onClick={() => void toggleSaveFlip(s.itemId)}>
+                        <IonIcon icon={trashOutline} slot="start" />
+                        Rimuovi
+                      </IonItemOption>
+                    </IonItemOptions>
+                  </IonItemSliding>
+                );
+              })}
+            </IonList>
+          )}
+
+          {!loading && !error && savedListMode === 'all' && items.length > 0 && (
             <>
               <IonList className="cp-list">
                 {items.map((item) => {
                   if (!isRoyalRow(item)) {
+                    const isSaved = savedItemIds.has(item.itemId);
                     return (
-                      <IonItem key={item.itemId} className="cp-item">
-                        <div className="cp-item-left" slot="start">
-                          <button
-                            type="button"
-                            className="cp-icon-btn"
-                            onClick={() =>
-                              setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)
-                            }
+                      <IonItemSliding key={item.itemId}>
+                        <IonItem className="cp-item">
+                          <div className="cp-item-left" slot="start">
+                            <button
+                              type="button"
+                              className="cp-icon-btn"
+                              onClick={() =>
+                                setExpandedIcon(expandedIcon === item.itemId ? null : item.itemId)
+                              }
+                            >
+                              {item.iconUrl && !failedIcons.has(item.itemId) ? (
+                                <img
+                                  src={item.iconUrl}
+                                  alt=""
+                                  className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                                  loading="lazy"
+                                  onError={() =>
+                                    setFailedIcons((prev) => new Set(prev).add(item.itemId))
+                                  }
+                                />
+                              ) : (
+                                <div
+                                  className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'var(--ion-color-step-150)',
+                                    fontSize: 10,
+                                  }}
+                                >
+                                  T{item.tier}
+                                </div>
+                              )}
+                            </button>
+                          </div>
+                          <IonLabel>
+                            <h3 className="cp-item-name">
+                              {cleanItemName(item.itemId)} {isSaved && <span className="cp-saved-badge">Salvato</span>}
+                            </h3>
+                            <div className="cp-meta">
+                              <span>T{item.tier}</span>
+                              {item.enchantment > 0 && <span> .{item.enchantment}</span>}
+                              <span> · {item.category}</span>
+                            </div>
+                            <div className="cp-resources" style={{ marginTop: 6 }}>
+                              <span className="cp-res-price cp-res-price--equal">
+                                Caerleon: {formatPrice(item.caerleonSellPriceMin)}
+                              </span>
+                              <span className="cp-res-sep">→</span>
+                              <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
+                            </div>
+                            <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
+                              Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
+                            </div>
+                          </IonLabel>
+                          <div slot="end" className="cp-profit-col">
+                            <span className="cp-profit positive">+{formatPrice(item.profit)}</span>
+                            <span className="cp-bm-price">+{item.profitPercentage.toFixed(1)}%</span>
+                          </div>
+                        </IonItem>
+                        <IonItemOptions side="end">
+                          <IonItemOption
+                            color={isSaved ? 'danger' : 'success'}
+                            onClick={() => void toggleSaveFlip(item.itemId)}
                           >
-                            {item.iconUrl && !failedIcons.has(item.itemId) ? (
-                              <img
-                                src={item.iconUrl}
-                                alt=""
-                                className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
-                                loading="lazy"
-                                onError={() =>
-                                  setFailedIcons((prev) => new Set(prev).add(item.itemId))
-                                }
-                              />
-                            ) : (
-                              <div
-                                className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: 'var(--ion-color-step-150)',
-                                  fontSize: 10,
-                                }}
-                              >
-                                T{item.tier}
-                              </div>
-                            )}
-                          </button>
-                        </div>
-                        <IonLabel>
-                          <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
-                          <div className="cp-meta">
-                            <span>T{item.tier}</span>
-                            {item.enchantment > 0 && <span> .{item.enchantment}</span>}
-                            <span> · {item.category}</span>
-                          </div>
-                          <div className="cp-resources" style={{ marginTop: 6 }}>
-                            <span className="cp-res-price cp-res-price--equal">
-                              Caerleon: {formatPrice(item.caerleonSellPriceMin)}
-                            </span>
-                            <span className="cp-res-sep">→</span>
-                            <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
-                          </div>
-                          <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
-                            Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
-                          </div>
-                        </IonLabel>
-                        <div slot="end" className="cp-profit-col">
-                          <span className="cp-profit positive">+{formatPrice(item.profit)}</span>
-                          <span className="cp-bm-price">+{item.profitPercentage.toFixed(1)}%</span>
-                        </div>
-                      </IonItem>
+                            <IonIcon icon={isSaved ? trashOutline : bookmarkOutline} slot="start" />
+                            {isSaved ? 'Rimuovi' : 'Salva'}
+                          </IonItemOption>
+                        </IonItemOptions>
+                      </IonItemSliding>
                     );
                   }
                   const r = item;
+                  const isSavedRoyal = savedRoyalItemIds.has(r.itemId);
                   const royalBo = royalFlipPath === 'BO';
                   const boLine =
                     royalBo && r.boProfit > 0 && r.boBuyCity && r.boSellCity ? (
@@ -572,7 +890,8 @@ const FlipPage: React.FC = () => {
                       </div>
                     ) : null;
                   return (
-                    <IonItem key={r.itemId} className="cp-item">
+                    <IonItemSliding key={r.itemId}>
+                    <IonItem className="cp-item">
                       <div className="cp-item-left" slot="start">
                         <button
                           type="button"
@@ -608,7 +927,9 @@ const FlipPage: React.FC = () => {
                         </button>
                       </div>
                       <IonLabel>
-                        <h3 className="cp-item-name">{cleanItemName(r.itemId)}</h3>
+                        <h3 className="cp-item-name">
+                          {cleanItemName(r.itemId)} {isSavedRoyal && <span className="cp-saved-badge">Salvato</span>}
+                        </h3>
                         <div className="cp-meta">
                           <span>T{r.tier}</span>
                           {r.enchantment > 0 && <span> .{r.enchantment}</span>}
@@ -632,6 +953,16 @@ const FlipPage: React.FC = () => {
                         </span>
                       </div>
                     </IonItem>
+                    <IonItemOptions side="end">
+                      <IonItemOption
+                        color={isSavedRoyal ? 'danger' : 'success'}
+                        onClick={() => void toggleSaveFlip(r.itemId)}
+                      >
+                        <IonIcon icon={isSavedRoyal ? trashOutline : bookmarkOutline} slot="start" />
+                        {isSavedRoyal ? 'Rimuovi' : 'Salva'}
+                      </IonItemOption>
+                    </IonItemOptions>
+                    </IonItemSliding>
                   );
                 })}
               </IonList>

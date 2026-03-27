@@ -77,7 +77,7 @@ const App: React.FC = () => (
           </IonTabButton>
           <IonTabButton tab="blackmarket" href="/blackmarket">
             <IonIcon icon={storefrontOutline} />
-            <IonLabel>Black Market</IonLabel>
+            <IonLabel>BM</IonLabel>
           </IonTabButton>
           <IonTabButton tab="focus" href="/focus">
             <IonIcon icon={flashOutline} />

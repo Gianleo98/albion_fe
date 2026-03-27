@@ -12,6 +12,8 @@ import type {
   RoyalMarketsResponse,
   SavedCraftingItemResponse,
   SavedFocusItemResponse,
+  SavedFlipItemResponse,
+  SavedRoyalFlipItemResponse,
   SortOption,
   FlipProfitResponse,
   RoyalContinentFlipResponse,
@@ -234,6 +236,52 @@ export const recomputeRoyalContinentFlip = async (): Promise<{ message: string; 
   return data;
 };
 
+// --- Saved Flip Items ---
+
+export const getSavedFlipItemIds = async (): Promise<string[]> => {
+  const { data } = await api.get<string[]>('/api/saved-flip-items/ids');
+  return data;
+};
+
+export const saveFlipItem = async (itemId: string): Promise<void> => {
+  await api.post('/api/saved-flip-items', { itemId });
+};
+
+export const deleteSavedFlipItem = async (itemId: string): Promise<void> => {
+  await api.delete(`/api/saved-flip-items/${encodeURIComponent(itemId)}`);
+};
+
+export const getSavedFlipItemsWithCurrent = async (): Promise<SavedFlipItemResponse[]> => {
+  const { data } = await api.get<SavedFlipItemResponse[]>('/api/saved-flip-items');
+  return data;
+};
+
+export const getSavedRoyalFlipItemIds = async (royalPath: 'BO' | 'SO'): Promise<string[]> => {
+  const { data } = await api.get<string[]>('/api/saved-royal-flip-items/ids', {
+    params: { royalPath },
+  });
+  return data;
+};
+
+export const saveRoyalFlipItem = async (itemId: string, royalPath: 'BO' | 'SO'): Promise<void> => {
+  await api.post('/api/saved-royal-flip-items', { itemId, royalPath });
+};
+
+export const deleteSavedRoyalFlipItem = async (itemId: string, royalPath: 'BO' | 'SO'): Promise<void> => {
+  await api.delete(`/api/saved-royal-flip-items/${encodeURIComponent(itemId)}`, {
+    params: { royalPath },
+  });
+};
+
+export const getSavedRoyalFlipItemsWithCurrent = async (
+  royalPath: 'BO' | 'SO'
+): Promise<SavedRoyalFlipItemResponse[]> => {
+  const { data } = await api.get<SavedRoyalFlipItemResponse[]>('/api/saved-royal-flip-items', {
+    params: { royalPath },
+  });
+  return data;
+};
+
 export const getFocusRoyalMarkets = async (itemId: string): Promise<RoyalMarketsResponse> => {
   const { data } = await api.get<RoyalMarketsResponse>('/api/focus-profit/royal-markets', {
     params: { itemId },
@@ -294,6 +342,15 @@ export const getEnchantingProfits = async (
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
   const { data } = await api.get<PageResponse<EnchantingProfitResponse>>('/api/enchanting-profit', { params });
   return data;
+};
+
+export const getEnchantingProfitByItemId = async (itemId: string): Promise<EnchantingProfitResponse | null> => {
+  try {
+    const { data } = await api.get<EnchantingProfitResponse>(`/api/enchanting-profit/${encodeURIComponent(itemId)}`);
+    return data;
+  } catch {
+    return null;
+  }
 };
 
 export const getEnchantingProfitSortOptions = async (): Promise<SortOption[]> => {
