@@ -14,6 +14,7 @@ const COOLDOWN_PER_ITEM_MS = 4 * 60 * 60 * 1000;
 const MIN_REFRESH_INTERVAL_MS = 45_000;
 
 const CHANNEL_ID = 'flip-high-profit';
+const FLIP_DIGEST_NOTIFICATION_ID = 9_000_002;
 
 let refreshInFlight = false;
 let lastRefreshStartedAt = 0;
@@ -85,34 +86,36 @@ async function notifyFlipHighProfitsIfNeeded(items: FlipProfitResponse[]): Promi
 
   const now = Date.now();
   const cd = loadCooldowns();
-  const notifications: {
-    id: number;
-    title: string;
-    body: string;
-    schedule: Schedule;
-    channelId?: string;
-  }[] = [];
-
-  let slot = 0;
+  const digestLines: string[] = [];
   for (const item of high) {
     const last = cd[item.itemId] ?? 0;
     if (now - last < COOLDOWN_PER_ITEM_MS) continue;
     cd[item.itemId] = now;
     const profitStr = item.profit.toLocaleString('it-IT');
-    notifications.push({
-      id: notificationIdForItem(item.itemId),
-      title: 'Albus — Flip: profitto alto',
-      body: `${shortFlipLabel(item.itemId)} · +${profitStr}`,
-      schedule: { at: new Date(now + 600 + slot * 750), allowWhileIdle: true },
-      channelId: Capacitor.getPlatform() === 'android' ? CHANNEL_ID : undefined,
-    });
-    slot += 1;
+    digestLines.push(`${shortFlipLabel(item.itemId)} +${profitStr}`);
   }
 
-  if (notifications.length === 0) return;
+  if (digestLines.length === 0) return;
   saveCooldowns(cd);
 
-  await LocalNotifications.schedule({ notifications });
+  const body =
+    digestLines.length > 4
+      ? `${digestLines.slice(0, 4).join('\n')}\n+${digestLines.length - 4} altre opportunita`
+      : digestLines.join('\n');
+
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: FLIP_DIGEST_NOTIFICATION_ID,
+        title: ' ',
+        body,
+        schedule: { at: new Date(now + 600), allowWhileIdle: true } as Schedule,
+        channelId: Capacitor.getPlatform() === 'android' ? CHANNEL_ID : undefined,
+        smallIcon: 'ic_launcher',
+        largeIcon: 'ic_launcher',
+      },
+    ],
+  });
 }
 
 /**

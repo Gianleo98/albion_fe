@@ -68,9 +68,11 @@ export async function syncAlbionDailyReminder(): Promise<void> {
     notifications: [
       {
         id: DAILY_DIGEST_NOTIFICATION_ID,
-        title: 'Albus — promemoria',
+        title: ' ',
         body: 'Controlla opportunità Flip, Focus e prezzi materiali su Lymhurst.',
         channelId: Capacitor.getPlatform() === 'android' ? CHANNEL_DAILY_ID : undefined,
+        smallIcon: 'ic_launcher',
+        largeIcon: 'ic_launcher',
         schedule: {
           on: { hour: DAILY_REMINDER_HOUR, minute: DAILY_REMINDER_MINUTE },
           repeats: true,
