@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import { Fragment, useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
   IonContent,
   IonPage,
@@ -49,6 +49,8 @@ import {
   listOutline,
   refreshOutline,
   saveOutline,
+  restaurantOutline,
+  restaurant,
 } from 'ionicons/icons';
 import {
   getFocusProfits,
@@ -61,7 +63,14 @@ import {
   getSavedFocusItemDetail,
   patchSavedFocusTracking,
 } from '../services/api';
-import type { AvailabilityLevelCode, FocusProfitResponse, RoyalMarketsResponse, SavedFocusItemResponse, SortOption } from '../types';
+import type {
+  AvailabilityLevelCode,
+  FocusConsumableIngredient,
+  FocusProfitResponse,
+  RoyalMarketsResponse,
+  SavedFocusItemResponse,
+  SortOption,
+} from '../types';
 import AppHeader from '../components/AppHeader';
 import { StockAvailabilityIcon } from '../components/StockAvailabilityIcon';
 import { formatYieldPercent, yieldPercentFromProfitAndCost } from '../utils/yieldPercent';
@@ -114,6 +123,24 @@ function focusBuyYieldFmt(item: FocusProfitResponse, withFocus: boolean): string
 const resPriceClass = (level?: 'below' | 'equal' | 'above') =>
   `cp-res-price cp-res-price--${level ?? 'equal'}`;
 
+function focusConsumableIngredientsRow(ingredients: FocusConsumableIngredient[]) {
+  return ingredients.map((ing, i) => (
+    <Fragment key={`${ing.itemId}-${i}`}>
+      {i > 0 && <span className="cp-res-sep">+</span>}
+      {ing.iconUrl ? (
+        <img src={ing.iconUrl} alt="" className="cp-res-icon" loading="lazy" />
+      ) : null}
+      <span className="cp-res-qty">{ing.quantity}x</span>
+      <span
+        className={resPriceClass(ing.priceLevel)}
+        title="Prezzo unitario listino Lymhurst vs media 7 giorni"
+      >
+        {formatPrice(ing.unitPrice)}
+      </span>
+    </Fragment>
+  ));
+}
+
 const cleanItemName = (itemId: string): string => {
   let name = itemId;
   if (name.length > 3 && /^T\d_/.test(name)) name = name.substring(3);
@@ -132,11 +159,17 @@ function focusMarketRankModifier(i: number): string {
   return '';
 }
 
+function isFocusFoodOrPotionItemId(itemId: string): boolean {
+  const u = itemId.toLowerCase();
+  return u.includes('meal') || u.includes('potion');
+}
+
 function savedItemMatchesFilters(
   s: SavedFocusItemResponse,
   nameQ: string,
   filterFocusMode: boolean,
-  onlyMaterialsUnderAvg: boolean
+  onlyMaterialsUnderAvg: boolean,
+  onlyConsumablesFoodPotion: boolean
 ): boolean {
   const q = nameQ.trim().toLowerCase();
   if (q) {
@@ -150,6 +183,7 @@ function savedItemMatchesFilters(
     return false;
   }
   if (onlyMaterialsUnderAvg && s.materialsUnderAvg !== true) return false;
+  if (onlyConsumablesFoodPotion && !isFocusFoodOrPotionItemId(s.itemId)) return false;
   return true;
 }
 
@@ -180,6 +214,8 @@ const FocusPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
+  /** Solo pasti e pozioni (consumabili crafting). */
+  const [consumablesFoodPotion, setConsumablesFoodPotion] = useState(false);
   /** Lista e ordinamento: con focus (default) vs senza focus (RRR base, stessi prezzi Lymhurst). */
   const [scenarioWithFocus, setScenarioWithFocus] = useState(true);
   const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean } | null>(null);
@@ -211,7 +247,7 @@ const FocusPage: React.FC = () => {
     if (listMode !== 'all') return;
     setLoading(true);
     fetchItems(0, true);
-  }, [nameSearch, materialsUnderAvg, scenarioWithFocus, listMode]);
+  }, [nameSearch, materialsUnderAvg, consumablesFoodPotion, scenarioWithFocus, listMode]);
 
   const fetchItems = useCallback(
     async (
@@ -230,7 +266,8 @@ const FocusPage: React.FC = () => {
           direction,
           nameSearch || undefined,
           materialsUnderAvg || undefined,
-          scenarioWithFocus
+          scenarioWithFocus,
+          consumablesFoodPotion || undefined
         );
         if (reset) {
           setItems(data.content);
@@ -248,7 +285,7 @@ const FocusPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [sortBy, sortDirection, nameSearch, materialsUnderAvg, scenarioWithFocus]
+    [sortBy, sortDirection, nameSearch, materialsUnderAvg, consumablesFoodPotion, scenarioWithFocus]
   );
 
   const fetchSavedIds = useCallback(async () => {
@@ -272,9 +309,15 @@ const FocusPage: React.FC = () => {
   const filteredSavedItems = useMemo(
     () =>
       savedItems.filter((s) =>
-        savedItemMatchesFilters(s, nameSearch, scenarioWithFocus, materialsUnderAvg)
+        savedItemMatchesFilters(
+          s,
+          nameSearch,
+          scenarioWithFocus,
+          materialsUnderAvg,
+          consumablesFoodPotion
+        )
       ),
-    [savedItems, nameSearch, scenarioWithFocus, materialsUnderAvg]
+    [savedItems, nameSearch, scenarioWithFocus, materialsUnderAvg, consumablesFoodPotion]
   );
 
   const fetchInitial = async () => {
@@ -529,6 +572,15 @@ const FocusPage: React.FC = () => {
               >
                 <IonIcon icon={materialsUnderAvg ? funnel : funnelOutline} />
               </button>
+              <button
+                type="button"
+                className={`cp-filter-below-btn ${consumablesFoodPotion ? 'active' : ''}`}
+                onClick={() => setConsumablesFoodPotion((prev) => !prev)}
+                title="Solo consumabili: pasti (meal) e pozioni"
+                aria-label="Filtra: pasti e pozioni"
+              >
+                <IonIcon icon={consumablesFoodPotion ? restaurant : restaurantOutline} />
+              </button>
             </div>
           )}
 
@@ -575,7 +627,8 @@ const FocusPage: React.FC = () => {
           {!loading && listMode === 'all' && totalElements > 0 && (
             <p className="cp-count">
               {totalElements} item totali (Lymhurst
-              {scenarioWithFocus ? ', profitto con focus' : ', profitto senza focus'})
+              {scenarioWithFocus ? ', profitto con focus' : ', profitto senza focus'}
+              {consumablesFoodPotion ? ', solo pasti e pozioni' : ''})
             </p>
           )}
 
@@ -630,46 +683,77 @@ const FocusPage: React.FC = () => {
                     <IonLabel>
                           <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
                       <div className="cp-resources">
-                        {item.primaryResourceIconUrl && (
-                          <img src={item.primaryResourceIconUrl} alt="" className="cp-res-icon" />
-                        )}
-                        <span className="cp-res-qty">{item.primaryResourceQty}x</span>
-                        <span className={resPriceClass(item.primaryResourcePriceLevel)}>{formatPrice(item.primaryResourcePrice)}</span>
-                        {item.secondaryResourceId && (
+                        {item.consumableIngredients && item.consumableIngredients.length > 0 ? (
+                          focusConsumableIngredientsRow(item.consumableIngredients)
+                        ) : (
                           <>
-                            <span className="cp-res-sep">+</span>
-                            {item.secondaryResourceIconUrl && (
-                              <img src={item.secondaryResourceIconUrl} alt="" className="cp-res-icon" />
+                            {item.primaryResourceIconUrl && (
+                              <img src={item.primaryResourceIconUrl} alt="" className="cp-res-icon" loading="lazy" />
                             )}
-                            <span className="cp-res-qty">{item.secondaryResourceQty}x</span>
-                            <span className={resPriceClass(item.secondaryResourcePriceLevel)}>{formatPrice(item.secondaryResourcePrice)}</span>
-                          </>
-                        )}
-                        {item.artifactId && (
-                          <>
-                            <span className="cp-res-sep">+</span>
-                            {item.artifactIconUrl && (
-                              <img src={item.artifactIconUrl} alt="" className="cp-res-icon" />
+                            <span className="cp-res-qty">{item.primaryResourceQty}x</span>
+                            <span
+                              className={resPriceClass(item.primaryResourcePriceLevel)}
+                              title="Prezzo unitario listino Lymhurst vs media 7 giorni"
+                            >
+                              {formatPrice(item.primaryResourcePrice)}
+                            </span>
+                            {item.secondaryResourceId && (
+                              <>
+                                <span className="cp-res-sep">+</span>
+                                {item.secondaryResourceIconUrl && (
+                                  <img src={item.secondaryResourceIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                )}
+                                <span className="cp-res-qty">{item.secondaryResourceQty}x</span>
+                                <span
+                                  className={resPriceClass(item.secondaryResourcePriceLevel)}
+                                  title="Prezzo unitario listino Lymhurst vs media 7 giorni"
+                                >
+                                  {formatPrice(item.secondaryResourcePrice)}
+                                </span>
+                              </>
                             )}
-                            <span className={resPriceClass(item.artifactPriceLevel)}>{formatPrice(item.artifactPrice)}</span>
-                          </>
-                        )}
-                        {item.heartId && (
-                          <>
-                            <span className="cp-res-sep">+</span>
-                            {item.heartIconUrl && (
-                              <img src={item.heartIconUrl} alt="" className="cp-res-icon" />
+                            {item.artifactId && (
+                              <>
+                                <span className="cp-res-sep">+</span>
+                                {item.artifactIconUrl && (
+                                  <img src={item.artifactIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                )}
+                                <span
+                                  className={resPriceClass(item.artifactPriceLevel)}
+                                  title="Prezzo unitario listino Lymhurst vs media 7 giorni"
+                                >
+                                  {formatPrice(item.artifactPrice)}
+                                </span>
+                              </>
                             )}
-                            <span className={resPriceClass(item.heartPriceLevel)}>{formatPrice(item.heartPrice)}</span>
-                          </>
-                        )}
-                        {item.crestId && (
-                          <>
-                            <span className="cp-res-sep">+</span>
-                            {item.crestIconUrl && (
-                              <img src={item.crestIconUrl} alt="" className="cp-res-icon" />
+                            {item.heartId && (
+                              <>
+                                <span className="cp-res-sep">+</span>
+                                {item.heartIconUrl && (
+                                  <img src={item.heartIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                )}
+                                <span
+                                  className={resPriceClass(item.heartPriceLevel)}
+                                  title="Prezzo unitario listino Lymhurst vs media 7 giorni"
+                                >
+                                  {formatPrice(item.heartPrice)}
+                                </span>
+                              </>
                             )}
-                            <span className={resPriceClass(item.crestPriceLevel)}>{formatPrice(item.crestPrice)}</span>
+                            {item.crestId && (
+                              <>
+                                <span className="cp-res-sep">+</span>
+                                {item.crestIconUrl && (
+                                  <img src={item.crestIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                )}
+                                <span
+                                  className={resPriceClass(item.crestPriceLevel)}
+                                  title="Prezzo unitario listino Lymhurst vs media 7 giorni"
+                                >
+                                  {formatPrice(item.crestPrice)}
+                                </span>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -790,56 +874,62 @@ const FocusPage: React.FC = () => {
                         </span>
                         {cleanItemName(s.itemId)}
                       </h3>
-                      {s.primaryResourceId && (
+                      {(s.consumableIngredients?.length || s.primaryResourceId) && (
                         <div className="cp-resources">
-                          {s.primaryResourceIconUrl && (
-                            <img src={s.primaryResourceIconUrl} alt="" className="cp-res-icon" />
-                          )}
-                          <span className="cp-res-qty">{s.primaryResourceQty}x</span>
-                          {focusSavedMatUnitPrice(
-                            s.primaryResourcePrice,
-                            s.savedPrimaryResourcePrice,
-                            s.primaryResourcePriceLevel
-                          )}
-                          {s.secondaryResourceId && (
+                          {s.consumableIngredients && s.consumableIngredients.length > 0 ? (
+                            focusConsumableIngredientsRow(s.consumableIngredients)
+                          ) : (
                             <>
-                              <span className="cp-res-sep">+</span>
-                              {s.secondaryResourceIconUrl && (
-                                <img src={s.secondaryResourceIconUrl} alt="" className="cp-res-icon" />
+                              {s.primaryResourceIconUrl && (
+                                <img src={s.primaryResourceIconUrl} alt="" className="cp-res-icon" loading="lazy" />
                               )}
-                              <span className="cp-res-qty">{s.secondaryResourceQty}x</span>
+                              <span className="cp-res-qty">{s.primaryResourceQty}x</span>
                               {focusSavedMatUnitPrice(
-                                s.secondaryResourcePrice,
-                                s.savedSecondaryResourcePrice,
-                                s.secondaryResourcePriceLevel
+                                s.primaryResourcePrice,
+                                s.savedPrimaryResourcePrice,
+                                s.primaryResourcePriceLevel
                               )}
-                            </>
-                          )}
-                          {s.artifactId && (
-                            <>
-                              <span className="cp-res-sep">+</span>
-                              {s.artifactIconUrl && (
-                                <img src={s.artifactIconUrl} alt="" className="cp-res-icon" />
+                              {s.secondaryResourceId && (
+                                <>
+                                  <span className="cp-res-sep">+</span>
+                                  {s.secondaryResourceIconUrl && (
+                                    <img src={s.secondaryResourceIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                  )}
+                                  <span className="cp-res-qty">{s.secondaryResourceQty}x</span>
+                                  {focusSavedMatUnitPrice(
+                                    s.secondaryResourcePrice,
+                                    s.savedSecondaryResourcePrice,
+                                    s.secondaryResourcePriceLevel
+                                  )}
+                                </>
                               )}
-                              {focusSavedMatUnitPrice(s.artifactPrice, s.savedArtifactPrice, s.artifactPriceLevel)}
-                            </>
-                          )}
-                          {s.heartId && (
-                            <>
-                              <span className="cp-res-sep">+</span>
-                              {s.heartIconUrl && (
-                                <img src={s.heartIconUrl} alt="" className="cp-res-icon" />
+                              {s.artifactId && (
+                                <>
+                                  <span className="cp-res-sep">+</span>
+                                  {s.artifactIconUrl && (
+                                    <img src={s.artifactIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                  )}
+                                  {focusSavedMatUnitPrice(s.artifactPrice, s.savedArtifactPrice, s.artifactPriceLevel)}
+                                </>
                               )}
-                              {focusSavedMatUnitPrice(s.heartPrice, s.savedHeartPrice, s.heartPriceLevel)}
-                            </>
-                          )}
-                          {s.crestId && (
-                            <>
-                              <span className="cp-res-sep">+</span>
-                              {s.crestIconUrl && (
-                                <img src={s.crestIconUrl} alt="" className="cp-res-icon" />
+                              {s.heartId && (
+                                <>
+                                  <span className="cp-res-sep">+</span>
+                                  {s.heartIconUrl && (
+                                    <img src={s.heartIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                  )}
+                                  {focusSavedMatUnitPrice(s.heartPrice, s.savedHeartPrice, s.heartPriceLevel)}
+                                </>
                               )}
-                              {focusSavedMatUnitPrice(s.crestPrice, s.savedCrestPrice, s.crestPriceLevel)}
+                              {s.crestId && (
+                                <>
+                                  <span className="cp-res-sep">+</span>
+                                  {s.crestIconUrl && (
+                                    <img src={s.crestIconUrl} alt="" className="cp-res-icon" loading="lazy" />
+                                  )}
+                                  {focusSavedMatUnitPrice(s.crestPrice, s.savedCrestPrice, s.crestPriceLevel)}
+                                </>
+                              )}
                             </>
                           )}
                         </div>

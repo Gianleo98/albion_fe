@@ -55,7 +55,13 @@ import {
   getSavedEnchantingItemDetail,
   patchSavedEnchantingTracking,
 } from '../services/api';
-import type { AvailabilityLevelCode, EnchantingProfitResponse, SavedEnchantingItemResponse, SortOption } from '../types';
+import type {
+  AvailabilityLevelCode,
+  EnchantingProfitResponse,
+  RoyalCityEnchantBuyProfit,
+  SavedEnchantingItemResponse,
+  SortOption,
+} from '../types';
 import AppHeader from '../components/AppHeader';
 import { StockAvailabilityIcon } from '../components/StockAvailabilityIcon';
 import './CraftingPage.css';
@@ -164,6 +170,36 @@ const AVAIL_OPTIONS: { value: AvailabilityLevelCode; label: string }[] = [
 const pathCodeLabel = (code: string): string =>
   ({ FROM_0: 'Da .0', FROM_1: 'Da .1', FROM_2: 'Da .2', BUY_3: 'Compra .3' } as Record<string, string>)[code] ?? code;
 
+/** .1 / .2 / .3 = prodotto finale enchant su cui calcoli ricavo − costo min (vendita .1, .2 o .3). */
+type ProfitPathView = '1' | '2' | '3';
+
+const pathViewSellProfit = (item: EnchantingProfitResponse, pv: ProfitPathView): number | null => {
+  if (pv === '1') return item.profitFinalEnchant1 ?? null;
+  if (pv === '2') return item.profitFinalEnchant2 ?? null;
+  return item.bestProfit;
+};
+
+const pathViewRoyalBuyRank = (item: EnchantingProfitResponse, pv: ProfitPathView): RoyalCityEnchantBuyProfit[] => {
+  if (pv === '1') return item.royalBuyOrderRankFinal1 ?? [];
+  if (pv === '2') return item.royalBuyOrderRankFinal2 ?? [];
+  return item.royalBuyOrderRank ?? [];
+};
+
+const pathViewBestBuyOrder = (item: EnchantingProfitResponse, pv: ProfitPathView): number | null | undefined => {
+  if (pv === '1') return item.bestProfitBuyOrderFinal1;
+  if (pv === '2') return item.bestProfitBuyOrderFinal2;
+  return item.bestProfitBuyOrder;
+};
+
+const pathViewBestBuyCity = (item: EnchantingProfitResponse, pv: ProfitPathView): string | null | undefined => {
+  if (pv === '1') return item.bestProfitBuyOrderCityItFinal1;
+  if (pv === '2') return item.bestProfitBuyOrderCityItFinal2;
+  return item.bestProfitBuyOrderCityIt;
+};
+
+const formatProfitMaybe = (n: number | null | undefined): string =>
+  n == null || !Number.isFinite(n) ? '—' : formatProfitWithSign(n);
+
 const base0CostSourceExplain = (src: string | undefined): string => {
   switch (src) {
     case 'BUY':
@@ -198,6 +234,12 @@ const enchantBaseFullItemId = (tier: number, baseItemId: string, enchant: 0 | 1 
   return enchant === 0 ? p : `${p}@${enchant}`;
 };
 
+const listItemIconUrl = (item: EnchantingProfitResponse, pv: ProfitPathView): string => {
+  if (pv === '1') return albionItemIconUrl(enchantBaseFullItemId(item.tier, item.baseItemId, 1));
+  if (pv === '2') return albionItemIconUrl(enchantBaseFullItemId(item.tier, item.baseItemId, 2));
+  return item.iconUrl;
+};
+
 const BreakdownLabelWithIcon: React.FC<{ itemId: string; text: string }> = ({ itemId, text }) => (
   <span className="cp-enchant-breakdown__label-with-icon">
     <img
@@ -218,11 +260,211 @@ const BreakdownLabelWithIcon: React.FC<{ itemId: string; text: string }> = ({ it
 const EnchantPathCostBreakdown: React.FC<{
   item: EnchantingProfitResponse;
   priceAvgs: EnchantListPriceAvgs;
-}> = ({ item, priceAvgs }) => {
+  profitPathView: ProfitPathView;
+}> = ({ item, priceAvgs, profitPathView }) => {
   const q = item.enchantMaterialQuantity;
-  const path = item.bestPath;
   const tier = item.tier;
+  const t = tier;
+  const base0FullId = enchantBaseFullItemId(item.tier, item.baseItemId, 0);
+  const ref0 = enchantRefAvg(priceAvgs.sell0, tier);
 
+  const base0CraftBlock = (
+    <>
+      <div className="cp-enchant-breakdown__row">
+        <span className="cp-enchant-breakdown__label">
+          <BreakdownLabelWithIcon itemId={base0FullId} text="Base .0 — mercato (Lymhurst, sell min)" />
+        </span>
+        <span
+          className={`cp-enchant-breakdown__val ${
+            item.sellPrice0 > 0 ? priceVsAvgClass(item.sellPrice0, ref0) : 'cp-price-vs-avg--neutral'
+          }`}
+        >
+          {item.sellPrice0 > 0 ? formatPrice(item.sellPrice0) : '—'}
+        </span>
+      </div>
+      {item.craftCostBase0 != null && item.craftCostBase0 > 0 && (
+        <div className="cp-enchant-breakdown__row">
+          <span className="cp-enchant-breakdown__label">
+            <span
+              className="cp-enchant-breakdown__label-text"
+              title="Stima come pagina Crafting (Lymhurst sell min + RRR)"
+            >
+              Base .0 — craft (stima)
+            </span>
+          </span>
+          <span className="cp-enchant-breakdown__val cp-price-vs-avg--neutral">
+            {formatPrice(item.craftCostBase0)}
+          </span>
+        </div>
+      )}
+      {item.base0CostSource && base0CostSourceExplain(item.base0CostSource) && (
+        <p className="cp-enchant-breakdown__sub" style={{ margin: '4px 0 0' }}>
+          {base0CostSourceExplain(item.base0CostSource)}
+          {item.base0UsedInCost > 0 && (
+            <>
+              {' '}
+              Base conteggiata: <strong>{formatPrice(item.base0UsedInCost)}</strong>.
+            </>
+          )}
+        </p>
+      )}
+    </>
+  );
+
+  const matSection = (
+    rows: { itemId: string; label: string; count: number; unit: number }[],
+    totalLabel: string,
+    totalValue: number | null | undefined
+  ) => {
+    const materialsSum = rows.reduce((acc, row) => acc + (matLineTotal(row.count, row.unit) ?? 0), 0);
+    const hasAllMatPriced = rows.every((row) => row.unit > 0);
+    return (
+      <>
+        <div className="cp-enchant-breakdown__title" style={{ marginTop: 8 }}>
+          Materiali enchant — acquisto Lymhurst (sell min)
+        </div>
+        {rows.map((row) => {
+          const matAvg = matAvgForMaterialRow(priceAvgs, row.itemId);
+          const refMat = enchantRefAvg(matAvg, tier);
+          return (
+            <div key={row.itemId} className="cp-enchant-breakdown__row">
+              <span className="cp-enchant-breakdown__label">
+                <BreakdownLabelWithIcon itemId={row.itemId} text={row.label} />
+              </span>
+              <span className={`cp-enchant-breakdown__val ${priceVsAvgClass(row.unit, refMat)}`}>
+                {formatMatLine(row.count, row.unit)}
+              </span>
+            </div>
+          );
+        })}
+        <div className="cp-enchant-breakdown__row">
+          <span className="cp-enchant-breakdown__label">Totale materiali</span>
+          <span className="cp-enchant-breakdown__val">
+            {hasAllMatPriced ? formatPrice(materialsSum) : '—'}
+          </span>
+        </div>
+        <div className="cp-enchant-breakdown__row cp-enchant-breakdown__row--sum">
+          <span className="cp-enchant-breakdown__label">{totalLabel}</span>
+          <span className="cp-enchant-breakdown__val">
+            {totalValue != null && totalValue > 0 ? formatPrice(totalValue) : '—'}
+          </span>
+        </div>
+      </>
+    );
+  };
+
+  if (profitPathView === '1') {
+    const ref1 = enchantRefAvg(priceAvgs.sell1, tier);
+    if (item.bestPathFinal1 === 'BUY_1') {
+      return (
+        <div className="cp-enchant-breakdown">
+          <div className="cp-enchant-breakdown__title">Costo per ottenere .1 — prodotto finale</div>
+          <div className="cp-enchant-breakdown__row">
+            <span className="cp-enchant-breakdown__label">Acquisto .1 (Lymhurst, sell min)</span>
+            <span className={`cp-enchant-breakdown__val ${priceVsAvgClass(item.sellPrice1, ref1)}`}>
+              {formatPrice(item.sellPrice1)}
+            </span>
+          </div>
+          <div className="cp-enchant-breakdown__row cp-enchant-breakdown__row--sum">
+            <span className="cp-enchant-breakdown__label">Totale costo</span>
+            <span className="cp-enchant-breakdown__val">
+              {item.costMinFinal1 != null && item.costMinFinal1 > 0 ? formatPrice(item.costMinFinal1) : '—'}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    if (item.bestPathFinal1 === 'FROM_0') {
+      return (
+        <div className="cp-enchant-breakdown">
+          <div className="cp-enchant-breakdown__title">Costo per ottenere .1 — {item.bestPathFinal1LabelIt}</div>
+          {base0CraftBlock}
+          {matSection(
+            [{ itemId: `T${t}_RUNE`, label: 'Rune (0→1)', count: q, unit: item.runeUnitPrice }],
+            'Base + materiali (tot.)',
+            item.costMinFinal1
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="cp-enchant-breakdown">
+        <p className="cp-enchant-breakdown__sub">Costo verso .1 non calcolabile (prezzi mancanti).</p>
+      </div>
+    );
+  }
+
+  if (profitPathView === '2') {
+    const ref1b = enchantRefAvg(priceAvgs.sell1, tier);
+    const ref2 = enchantRefAvg(priceAvgs.sell2, tier);
+    const id1 = enchantBaseFullItemId(item.tier, item.baseItemId, 1);
+    if (item.bestPathFinal2 === 'BUY_2') {
+      return (
+        <div className="cp-enchant-breakdown">
+          <div className="cp-enchant-breakdown__title">Costo per ottenere .2 — prodotto finale</div>
+          <div className="cp-enchant-breakdown__row">
+            <span className="cp-enchant-breakdown__label">Acquisto .2 (Lymhurst, sell min)</span>
+            <span className={`cp-enchant-breakdown__val ${priceVsAvgClass(item.sellPrice2, ref2)}`}>
+              {formatPrice(item.sellPrice2)}
+            </span>
+          </div>
+          <div className="cp-enchant-breakdown__row cp-enchant-breakdown__row--sum">
+            <span className="cp-enchant-breakdown__label">Totale costo</span>
+            <span className="cp-enchant-breakdown__val">
+              {item.costMinFinal2 != null && item.costMinFinal2 > 0 ? formatPrice(item.costMinFinal2) : '—'}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    if (item.bestPathFinal2 === 'FROM_1') {
+      return (
+        <div className="cp-enchant-breakdown">
+          <div className="cp-enchant-breakdown__title">Costo per ottenere .2 — {item.bestPathFinal2LabelIt}</div>
+          <div className="cp-enchant-breakdown__row">
+            <span className="cp-enchant-breakdown__label">
+              <BreakdownLabelWithIcon itemId={id1} text="Base .1 — acquisto Lymhurst (sell min)" />
+            </span>
+            <span
+              className={`cp-enchant-breakdown__val ${
+                item.sellPrice1 > 0 ? priceVsAvgClass(item.sellPrice1, ref1b) : 'cp-price-vs-avg--neutral'
+              }`}
+            >
+              {item.sellPrice1 > 0 ? formatPrice(item.sellPrice1) : '—'}
+            </span>
+          </div>
+          {matSection(
+            [{ itemId: `T${t}_SOUL`, label: 'Soul (1→2)', count: q, unit: item.soulUnitPrice }],
+            'Base + materiali (tot.)',
+            item.costMinFinal2
+          )}
+        </div>
+      );
+    }
+    if (item.bestPathFinal2 === 'FROM_0') {
+      return (
+        <div className="cp-enchant-breakdown">
+          <div className="cp-enchant-breakdown__title">Costo per ottenere .2 — {item.bestPathFinal2LabelIt}</div>
+          {base0CraftBlock}
+          {matSection(
+            [
+              { itemId: `T${t}_RUNE`, label: 'Rune (0→1)', count: q, unit: item.runeUnitPrice },
+              { itemId: `T${t}_SOUL`, label: 'Soul (1→2)', count: q, unit: item.soulUnitPrice },
+            ],
+            'Base + materiali (tot.)',
+            item.costMinFinal2
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="cp-enchant-breakdown">
+        <p className="cp-enchant-breakdown__sub">Costo verso .2 non calcolabile (prezzi mancanti).</p>
+      </div>
+    );
+  }
+
+  const path = item.bestPath;
   if (path === 'BUY_3') {
     const ref3 = enchantRefAvg(priceAvgs.sell3, tier);
     return (
@@ -265,7 +507,6 @@ const EnchantPathCostBreakdown: React.FC<{
             totalCost: item.costFrom2,
           };
 
-  const t = item.tier;
   const from0WithCraftCompare = path === 'FROM_0';
   const matRows: { itemId: string; label: string; count: number; unit: number }[] =
     path === 'FROM_0'
@@ -282,64 +523,21 @@ const EnchantPathCostBreakdown: React.FC<{
         : [{ itemId: `T${t}_RELIC`, label: 'Relic', count: q, unit: item.relicUnitPrice }];
 
   const materialsSum = matRows.reduce((acc, row) => {
-    const t = matLineTotal(row.count, row.unit);
-    return acc + (t ?? 0);
+    const x = matLineTotal(row.count, row.unit);
+    return acc + (x ?? 0);
   }, 0);
   const hasAllMatPriced = matRows.every((row) => row.unit > 0);
   const baseOk = base.price > 0;
 
   const baseAvg =
-    path === 'FROM_0'
-      ? priceAvgs.sell0
-      : path === 'FROM_1'
-        ? priceAvgs.sell1
-        : priceAvgs.sell2;
+    path === 'FROM_0' ? priceAvgs.sell0 : path === 'FROM_1' ? priceAvgs.sell1 : priceAvgs.sell2;
   const refBase = enchantRefAvg(baseAvg, tier);
 
   return (
     <div className="cp-enchant-breakdown">
-      <div className="cp-enchant-breakdown__title">Costo percorso migliore ({pathCodeLabel(path)})</div>
+      <div className="cp-enchant-breakdown__title">Costo percorso migliore verso .3 ({pathCodeLabel(path)})</div>
       {from0WithCraftCompare ? (
-        <>
-          <div className="cp-enchant-breakdown__row">
-            <span className="cp-enchant-breakdown__label">
-              <BreakdownLabelWithIcon
-                itemId={baseFullId}
-                text="Base .0 — mercato (Lymhurst, sell min)"
-              />
-            </span>
-            <span
-              className={`cp-enchant-breakdown__val ${
-                item.sellPrice0 > 0 ? priceVsAvgClass(item.sellPrice0, refBase) : 'cp-price-vs-avg--neutral'
-              }`}
-            >
-              {item.sellPrice0 > 0 ? formatPrice(item.sellPrice0) : '—'}
-            </span>
-          </div>
-          {item.craftCostBase0 != null && item.craftCostBase0 > 0 && (
-            <div className="cp-enchant-breakdown__row">
-              <span className="cp-enchant-breakdown__label">
-                <span className="cp-enchant-breakdown__label-text" title="Stima come pagina Crafting (Lymhurst sell min + RRR)">
-                  Base .0 — craft (stima)
-                </span>
-              </span>
-              <span className="cp-enchant-breakdown__val cp-price-vs-avg--neutral">
-                {formatPrice(item.craftCostBase0)}
-              </span>
-            </div>
-          )}
-          {item.base0CostSource && base0CostSourceExplain(item.base0CostSource) && (
-            <p className="cp-enchant-breakdown__sub" style={{ margin: '4px 0 0' }}>
-              {base0CostSourceExplain(item.base0CostSource)}
-              {item.base0UsedInCost > 0 && (
-                <>
-                  {' '}
-                  Base conteggiata: <strong>{formatPrice(item.base0UsedInCost)}</strong>.
-                </>
-              )}
-            </p>
-          )}
-        </>
+        base0CraftBlock
       ) : (
         <div className="cp-enchant-breakdown__row">
           <span className="cp-enchant-breakdown__label">
@@ -403,6 +601,7 @@ const EnchantingPage: React.FC = () => {
   const [failedIcons, setFailedIcons] = useState<Set<string>>(new Set());
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
+  const [profitPathView, setProfitPathView] = useState<ProfitPathView>('3');
   const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean } | null>(null);
   const [detailItem, setDetailItem] = useState<SavedEnchantingItemResponse | null>(null);
   const [detailBasicItem, setDetailBasicItem] = useState<EnchantingProfitResponse | null>(null);
@@ -412,6 +611,7 @@ const EnchantingPage: React.FC = () => {
   const [trackSaving, setTrackSaving] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountRef = useRef(false);
+  const skipPathViewEffectRef = useRef(true);
   const slidingRefs = useRef<Record<string, HTMLIonItemSlidingElement | null>>({});
   const [presentToast] = useIonToast();
 
@@ -442,8 +642,9 @@ const EnchantingPage: React.FC = () => {
     ) => {
       const sort = sortByOverride ?? sortBy;
       const direction = sortDirectionOverride ?? sortDirection;
+      const pv = Number(profitPathView) as 1 | 2 | 3;
       try {
-        const data = await getEnchantingProfits(pageNum, 20, sort, direction, nameSearch || undefined);
+        const data = await getEnchantingProfits(pageNum, 20, sort, direction, nameSearch || undefined, pv);
         if (reset) {
           setItems(data.content);
         } else {
@@ -460,8 +661,18 @@ const EnchantingPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [sortBy, sortDirection, nameSearch]
+    [sortBy, sortDirection, nameSearch, profitPathView]
   );
+
+  useEffect(() => {
+    if (skipPathViewEffectRef.current) {
+      skipPathViewEffectRef.current = false;
+      return;
+    }
+    if (listMode !== 'all') return;
+    setLoading(true);
+    void fetchItems(0, true);
+  }, [profitPathView, listMode, fetchItems]);
 
   const fetchSavedIds = useCallback(async () => {
     try {
@@ -666,6 +877,26 @@ const EnchantingPage: React.FC = () => {
                 </IonItem>
               </div>
 
+              <IonSegment
+                value={profitPathView}
+                onIonChange={(e) => {
+                  const v = e.detail.value;
+                  if (v === '1' || v === '2' || v === '3') setProfitPathView(v);
+                }}
+                className="cp-segment"
+                style={{ margin: '0 0 8px' }}
+              >
+                <IonSegmentButton value="1" title="Prodotto finale .1: profitto vendendo l’item @1">
+                  <IonLabel>.1</IonLabel>
+                </IonSegmentButton>
+                <IonSegmentButton value="2" title="Prodotto finale .2: profitto vendendo l’item @2">
+                  <IonLabel>.2</IonLabel>
+                </IonSegmentButton>
+                <IonSegmentButton value="3" title="Prodotto finale .3: profitto vendendo l’item @3 (percorso costo min)">
+                  <IonLabel>.3</IonLabel>
+                </IonSegmentButton>
+              </IonSegment>
+
               <div className="cp-toolbar">
                 {sortOptions.length > 0 && (
                   <IonItem className="cp-sort-selector" lines="none">
@@ -695,13 +926,12 @@ const EnchantingPage: React.FC = () => {
               </div>
 
               <p className="cp-count" style={{ padding: '0 16px', fontSize: '0.85rem', opacity: 0.85 }}>
-                Verso .3: costi (.0/.1/.2 + Rune/Soul/Relic) su <strong>Lymhurst sell min</strong>; per la base .0 si
-                confronta anche lo <strong>craft stimato</strong> (come Crafting) e nel totale entra il minimo.{' '}
-                <strong>Profitto sell order</strong>: dopo tassa vendita (4% con Premium o 8% senza, da impostazioni) e
-                setup listino 2,5% sul ricavo, come Focus.{' '}
-                <strong>Profitto buy order</strong>: vendita istantanea al buy max — solo tassa vendita sul ricavo, senza
-                setup 2,5%; stesso costo minimo Lymhurst; classifica a destra. I colori sell min vs{' '}
-                <strong>media lista</strong> (tier).
+                <strong>.1 / .2 / .3</strong> = <strong>prodotto finale</strong> enchant: il profitto è ricavo (sell min
+                Lymhurst su quell’item @1, @2 o @3) meno il costo minimo per <strong>ottenere quel livello</strong>{' '}
+                (compra al livello oppure enchant: Rune 0→1, Soul 1→2, Relic 2→3). La vista <strong>.3</strong> è come
+                prima (miglior percorso fino a .3). <strong>Sell order</strong>: tassa + setup 2,5%.{' '}
+                <strong>Buy order</strong>: buy max royal sullo stesso item finale. Colori vs <strong>media lista</strong>{' '}
+                (tier).
               </p>
 
               {!loading && totalElements > 0 && <p className="cp-count">{totalElements} item</p>}
@@ -731,7 +961,13 @@ const EnchantingPage: React.FC = () => {
                       .filter((item) => item.iconUrl && !failedIcons.has(item.itemId))
                       .map((item) => {
                         const isSaved = savedItemIds.has(item.itemId);
+                        const refSell1 = enchantRefAvg(enchantPriceAvgs.sell1, item.tier);
+                        const refSell2 = enchantRefAvg(enchantPriceAvgs.sell2, item.tier);
                         const refSell3 = enchantRefAvg(enchantPriceAvgs.sell3, item.tier);
+                        const sellP = pathViewSellProfit(item, profitPathView);
+                        const buyTop = pathViewBestBuyOrder(item, profitPathView);
+                        const buyCity = pathViewBestBuyCity(item, profitPathView);
+                        const buyRank = pathViewRoyalBuyRank(item, profitPathView);
                         return (
                           <IonItemSliding
                             key={item.itemId}
@@ -746,7 +982,7 @@ const EnchantingPage: React.FC = () => {
                             >
                               <div className="cp-item-left" slot="start">
                                 <img
-                                  src={item.iconUrl}
+                                  src={listItemIconUrl(item, profitPathView)}
                                   alt=""
                                   className="cp-item-icon"
                                   loading="lazy"
@@ -758,8 +994,22 @@ const EnchantingPage: React.FC = () => {
                                   T{item.tier} · {cleanItemName(item.itemId)} · ×{item.enchantMaterialQuantity}
                                 </h3>
                                 <div className="cp-meta">
-                                  <span className="cp-rrr">Percorso: {item.bestPathLabelIt}</span>
-                                  {item.enchantVersusBuySilver != null && item.enchantVersusBuySilver !== 0 && (
+                                  <span className="cp-rrr">
+                                    {profitPathView === '3' ? (
+                                      <>Verso .3: {item.bestPathLabelIt}</>
+                                    ) : profitPathView === '1' ? (
+                                      <>
+                                        Obiettivo <strong>.1</strong> · Costo min: {item.bestPathFinal1LabelIt ?? '—'}
+                                      </>
+                                    ) : (
+                                      <>
+                                        Obiettivo <strong>.2</strong> · Costo min: {item.bestPathFinal2LabelIt ?? '—'}
+                                      </>
+                                    )}
+                                  </span>
+                                  {profitPathView === '3' &&
+                                    item.enchantVersusBuySilver != null &&
+                                    item.enchantVersusBuySilver !== 0 && (
                                     <span className="cp-rrr" title="Positivo = enchant più economico dell’acquisto .3">
                                       vs compra .3: {formatProfitWithSign(item.enchantVersusBuySilver)}
                                     </span>
@@ -769,36 +1019,62 @@ const EnchantingPage: React.FC = () => {
                               </IonLabel>
                               <div slot="end" className="cp-profit-col cp-profit-col--enchant">
                                 <span className="cp-enchant-profit-label">Sell order</span>
-                                <span className={`cp-profit ${item.bestProfit >= 0 ? 'positive' : 'negative'}`}>
-                                  {formatProfitWithSign(item.bestProfit)}
+                                <span
+                                  className={
+                                    sellP == null ? 'cp-profit' : `cp-profit ${sellP >= 0 ? 'positive' : 'negative'}`
+                                  }
+                                >
+                                  {formatProfitMaybe(sellP)}
                                 </span>
                                 <span
                                   className="cp-bm-price"
-                                  title="Lymhurst sell min sul .3; colore vs media lista (tier)"
+                                  title="Listino Lymhurst sell min sul prodotto finale; colore vs media lista (tier)"
                                 >
-                                  .3 sell min:{' '}
-                                  <span className={priceVsAvgClass(item.sellPrice3, refSell3)}>
-                                    {formatPrice(item.sellPrice3)}
-                                  </span>
+                                  {profitPathView === '1' ? (
+                                    <>
+                                      .1 sell min:{' '}
+                                      <span className={priceVsAvgClass(item.sellPrice1, refSell1)}>
+                                        {formatPrice(item.sellPrice1)}
+                                      </span>
+                                    </>
+                                  ) : profitPathView === '2' ? (
+                                    <>
+                                      .2 sell min:{' '}
+                                      <span className={priceVsAvgClass(item.sellPrice2, refSell2)}>
+                                        {formatPrice(item.sellPrice2)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      .3 sell min:{' '}
+                                      <span className={priceVsAvgClass(item.sellPrice3, refSell3)}>
+                                        {formatPrice(item.sellPrice3)}
+                                      </span>
+                                    </>
+                                  )}
                                 </span>
                                 <span className="cp-enchant-profit-label">Buy order (royal)</span>
-                                {item.bestProfitBuyOrder != null ? (
+                                {buyTop != null ? (
                                   <>
                                     <span
-                                      className={`cp-profit ${item.bestProfitBuyOrder >= 0 ? 'positive' : 'negative'}`}
-                                      title="Ricavo buy max .3 nella città migliore − stesso costo min (Lymhurst)"
+                                      className={`cp-profit ${buyTop >= 0 ? 'positive' : 'negative'}`}
+                                      title={
+                                        profitPathView === '3'
+                                          ? 'Ricavo buy max .3 − costo min verso .3 (Lymhurst)'
+                                          : profitPathView === '1'
+                                            ? 'Ricavo buy max .1 − costo min verso .1'
+                                            : 'Ricavo buy max .2 − costo min verso .2'
+                                      }
                                     >
-                                      {formatProfitWithSign(item.bestProfitBuyOrder)}
+                                      {formatProfitWithSign(buyTop)}
                                     </span>
-                                    {item.bestProfitBuyOrderCityIt && (
-                                      <span className="cp-bm-price">Miglior: {item.bestProfitBuyOrderCityIt}</span>
-                                    )}
-                                    {item.royalBuyOrderRank && item.royalBuyOrderRank.length > 0 && (
+                                    {buyCity && <span className="cp-bm-price">Miglior: {buyCity}</span>}
+                                    {buyRank.length > 0 && (
                                       <ol className="cp-enchant-buy-rank" aria-label="Classifica buy order royal">
-                                        {item.royalBuyOrderRank.map((r) => (
+                                        {buyRank.map((r) => (
                                           <li
                                             key={r.cityCode}
-                                            title={`Buy max .3: ${formatPrice(r.buyPriceMax3)}`}
+                                            title={`Buy max: ${formatPrice(r.buyPriceMax3)}`}
                                           >
                                             {r.cityLabelIt}: {formatProfitWithSign(r.profitBuyOrder)}
                                           </li>
@@ -807,7 +1083,9 @@ const EnchantingPage: React.FC = () => {
                                     )}
                                   </>
                                 ) : (
-                                  <span className="cp-bm-price">— (nessun buy order .3)</span>
+                                  <span className="cp-bm-price">
+                                    — (nessun buy order sul prodotto {profitPathView === '1' ? '.1' : profitPathView === '2' ? '.2' : '.3'})
+                                  </span>
                                 )}
                               </div>
                             </IonItem>
@@ -990,23 +1268,67 @@ const EnchantingPage: React.FC = () => {
                 </IonCardHeader>
                 <IonCardContent>
                   <p style={{ margin: '4px 0' }}>
-                    Percorso: <strong>{detailBasicItem.bestPathLabelIt}</strong> ({detailBasicItem.bestPath})
+                    Prodotto finale:{' '}
+                    <strong>
+                      {profitPathView === '3' ? '.3' : profitPathView === '1' ? '.1' : '.2'}
+                    </strong>{' '}
+                    (ricavo listino su quell’item − costo min per ottenerlo)
                   </p>
-                  <p style={{ margin: '4px 0' }}>
-                    Profitto sell order: <strong>{formatProfitWithSign(detailBasicItem.bestProfit)}</strong>
-                  </p>
-                  <p style={{ margin: '4px 0' }}>
-                    .3 sell min Lymhurst: <strong>{formatPrice(detailBasicItem.sellPrice3)}</strong>
-                  </p>
-                  {detailBasicItem.enchantVersusBuySilver != null && detailBasicItem.enchantVersusBuySilver !== 0 && (
+                  {profitPathView === '3' ? (
                     <p style={{ margin: '4px 0' }}>
-                      vs compra .3: <strong>{formatProfitWithSign(detailBasicItem.enchantVersusBuySilver)}</strong>
+                      Percorso costo min verso .3: <strong>{detailBasicItem.bestPathLabelIt}</strong> (
+                      {detailBasicItem.bestPath})
+                    </p>
+                  ) : profitPathView === '1' ? (
+                    <p style={{ margin: '4px 0' }}>
+                      Costo minimo per .1: <strong>{detailBasicItem.bestPathFinal1LabelIt ?? '—'}</strong>
+                    </p>
+                  ) : (
+                    <p style={{ margin: '4px 0' }}>
+                      Costo minimo per .2: <strong>{detailBasicItem.bestPathFinal2LabelIt ?? '—'}</strong>
                     </p>
                   )}
+                  <p style={{ margin: '4px 0' }}>
+                    Profitto sell order (vista):{' '}
+                    <strong>{formatProfitMaybe(pathViewSellProfit(detailBasicItem, profitPathView))}</strong>
+                  </p>
+                  <p style={{ margin: '4px 0' }}>
+                    Profitto buy order (vista):{' '}
+                    <strong>{formatProfitMaybe(pathViewBestBuyOrder(detailBasicItem, profitPathView))}</strong>
+                    {pathViewBestBuyCity(detailBasicItem, profitPathView) != null && (
+                      <> · {pathViewBestBuyCity(detailBasicItem, profitPathView)}</>
+                    )}
+                  </p>
+                  <p style={{ margin: '4px 0' }}>
+                    {profitPathView === '1' ? (
+                      <>
+                        .1 sell min Lymhurst: <strong>{formatPrice(detailBasicItem.sellPrice1)}</strong>
+                      </>
+                    ) : profitPathView === '2' ? (
+                      <>
+                        .2 sell min Lymhurst: <strong>{formatPrice(detailBasicItem.sellPrice2)}</strong>
+                      </>
+                    ) : (
+                      <>
+                        .3 sell min Lymhurst: <strong>{formatPrice(detailBasicItem.sellPrice3)}</strong>
+                      </>
+                    )}
+                  </p>
+                  {profitPathView === '3' &&
+                    detailBasicItem.enchantVersusBuySilver != null &&
+                    detailBasicItem.enchantVersusBuySilver !== 0 && (
+                      <p style={{ margin: '4px 0' }}>
+                        vs compra .3: <strong>{formatProfitWithSign(detailBasicItem.enchantVersusBuySilver)}</strong>
+                      </p>
+                    )}
                 </IonCardContent>
               </IonCard>
 
-              <EnchantPathCostBreakdown item={detailBasicItem} priceAvgs={enchantPriceAvgs} />
+              <EnchantPathCostBreakdown
+                item={detailBasicItem}
+                priceAvgs={enchantPriceAvgs}
+                profitPathView={profitPathView}
+              />
 
               {detailItem && (
                 <IonCard style={{ marginTop: 14 }}>

@@ -30,13 +30,14 @@ import './HomePage.css';
 
 const NOTIF_DISMISS_KEY = 'albus_notif_prompt_dismissed';
 
-const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'ARTEFACT', 'CREST'];
+const MATERIAL_ORDER = ['CLOTH', 'LEATHER', 'PLANKS', 'METALBAR', 'INGREDIENT', 'ARTEFACT', 'CREST'];
 
 const MATERIAL_LABELS: Record<string, string> = {
   CLOTH: 'Cloth',
   LEATHER: 'Leather',
   PLANKS: 'Planks',
   METALBAR: 'Metal Bar',
+  INGREDIENT: 'Cook / Alchemy (base)',
   ARTEFACT: 'Artefact',
   CREST: 'Crest',
 };
@@ -286,7 +287,7 @@ const HomePage: React.FC = () => {
               className="home-hero-logo"
             />
             <h1 className="home-hero-title">Lymhurst</h1>
-            <p className="home-hero-tag">Prezzi materiali · media 7 giorni</p>
+            <p className="home-hero-tag">Prezzi materiali e ingredienti base (cibo/pozioni) · media 7 giorni</p>
             <p className="home-hero-foot">Albus · Janraion</p>
           </header>
 

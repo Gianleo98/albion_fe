@@ -177,11 +177,13 @@ export const getFocusProfits = async (
   sortDirection: 'ASC' | 'DESC' = 'DESC',
   nameSearch?: string,
   materialsUnderAvg?: boolean,
-  withFocus: boolean = true
+  withFocus: boolean = true,
+  consumablesFoodPotion?: boolean
 ): Promise<PageResponse<FocusProfitResponse>> => {
   const params: Record<string, unknown> = { page, size, sortBy, sortDirection, withFocus };
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
   if (materialsUnderAvg === true) params.materialsUnderAvg = true;
+  if (consumablesFoodPotion === true) params.consumablesFoodPotion = true;
   const { data } = await api.get<PageResponse<FocusProfitResponse>>('/api/focus-profit', { params });
   return data;
 };
@@ -336,9 +338,10 @@ export const getEnchantingProfits = async (
   size: number = 20,
   sortBy: string = 'BEST_PROFIT',
   sortDirection: 'ASC' | 'DESC' = 'DESC',
-  nameSearch?: string
+  nameSearch?: string,
+  pathView: 1 | 2 | 3 = 3
 ): Promise<PageResponse<EnchantingProfitResponse>> => {
-  const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
+  const params: Record<string, unknown> = { page, size, sortBy, sortDirection, pathView };
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
   const { data } = await api.get<PageResponse<EnchantingProfitResponse>>('/api/enchanting-profit', { params });
   return data;

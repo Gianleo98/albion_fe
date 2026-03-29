@@ -272,6 +272,21 @@ export interface EnchantingProfitResponse {
   royalBuyOrderRank?: RoyalCityEnchantBuyProfit[];
   bestProfitBuyOrder?: number | null;
   bestProfitBuyOrderCityIt?: string | null;
+  /** Prodotto finale enchant .1 / .2: profitto sell order e buy order coerenti con quel target. */
+  profitFinalEnchant1?: number | null;
+  bestPathFinal1?: string | null;
+  bestPathFinal1LabelIt?: string | null;
+  costMinFinal1?: number | null;
+  royalBuyOrderRankFinal1?: RoyalCityEnchantBuyProfit[];
+  bestProfitBuyOrderFinal1?: number | null;
+  bestProfitBuyOrderCityItFinal1?: string | null;
+  profitFinalEnchant2?: number | null;
+  bestPathFinal2?: string | null;
+  bestPathFinal2LabelIt?: string | null;
+  costMinFinal2?: number | null;
+  royalBuyOrderRankFinal2?: RoyalCityEnchantBuyProfit[];
+  bestProfitBuyOrderFinal2?: number | null;
+  bestProfitBuyOrderCityItFinal2?: string | null;
 }
 
 export interface EnchantmentMaterialStripResponse {
@@ -310,6 +325,14 @@ export interface SavedEnchantingItemResponse {
 }
 
 // --- Focus Profit (crafting con focus, mercato Lymhurst) ---
+
+export interface FocusConsumableIngredient {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+  iconUrl: string | null;
+  priceLevel?: 'below' | 'equal' | 'above';
+}
 
 export interface FocusProfitResponse {
   itemId: string;
@@ -360,6 +383,8 @@ export interface FocusProfitResponse {
   hasCityBonus: boolean;
   hasDailyBonus: boolean;
   materialsUnderAvg?: boolean;
+  /** Pasti/pozioni: elenco completo ingredienti (con icone e prezzo vs media 7gg). */
+  consumableIngredients?: FocusConsumableIngredient[] | null;
   updatedAt: string;
 }
 
@@ -436,6 +461,7 @@ export interface SavedFocusItemResponse {
   /** false = snapshot salvato in modalità senza focus; assente/legacy = con focus */
   savedWithFocus?: boolean;
   materialsUnderAvg?: boolean;
+  consumableIngredients?: FocusConsumableIngredient[] | null;
 }
 
 // --- Royal Markets (Focus: sell/buy order per città, solo lettura) ---
