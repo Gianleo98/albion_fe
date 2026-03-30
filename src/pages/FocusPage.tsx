@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import React, { Fragment, useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
   IonContent,
   IonPage,
@@ -158,6 +158,154 @@ function focusMarketRankModifier(i: number): string {
   if (i === 2) return 'focus-market-row--rank3';
   return '';
 }
+
+function focusStripMaterialEnchantSuffix(itemId: string): string {
+  return itemId.replace(/_LEVEL\d+@\d+$/i, '');
+}
+
+function focusFallbackMaterialIconUrl(itemId: string): string {
+  return `https://render.albiononline.com/v1/item/${focusStripMaterialEnchantSuffix(itemId)}.png`;
+}
+
+type FocusDetailMatRow = {
+  itemId: string;
+  qty: number;
+  unit: number;
+  iconUrl: string | null;
+  label: string;
+};
+
+function buildFocusMaterialRows(item: FocusProfitResponse | SavedFocusItemResponse): FocusDetailMatRow[] {
+  const cons = item.consumableIngredients;
+  if (cons && cons.length > 0) {
+    return cons.map((c) => ({
+      itemId: c.itemId,
+      qty: c.quantity,
+      unit: c.unitPrice,
+      iconUrl: c.iconUrl,
+      label: cleanItemName(c.itemId),
+    }));
+  }
+  const rows: FocusDetailMatRow[] = [];
+  if (item.primaryResourceId) {
+    rows.push({
+      itemId: item.primaryResourceId,
+      qty: item.primaryResourceQty,
+      unit: item.primaryResourcePrice,
+      iconUrl: item.primaryResourceIconUrl,
+      label: cleanItemName(item.primaryResourceId),
+    });
+  }
+  if (item.secondaryResourceId) {
+    rows.push({
+      itemId: item.secondaryResourceId,
+      qty: item.secondaryResourceQty,
+      unit: item.secondaryResourcePrice,
+      iconUrl: item.secondaryResourceIconUrl,
+      label: cleanItemName(item.secondaryResourceId),
+    });
+  }
+  if (item.artifactId) {
+    rows.push({
+      itemId: item.artifactId,
+      qty: 1,
+      unit: item.artifactPrice,
+      iconUrl: item.artifactIconUrl,
+      label: cleanItemName(item.artifactId),
+    });
+  }
+  if (item.heartId) {
+    rows.push({
+      itemId: item.heartId,
+      qty: 1,
+      unit: item.heartPrice,
+      iconUrl: item.heartIconUrl,
+      label: cleanItemName(item.heartId),
+    });
+  }
+  if (item.crestId) {
+    rows.push({
+      itemId: item.crestId,
+      qty: 1,
+      unit: item.crestPrice,
+      iconUrl: item.crestIconUrl,
+      label: cleanItemName(item.crestId),
+    });
+  }
+  return rows;
+}
+
+const FocusDetailMaterialBreakdown: React.FC<{
+  rows: FocusDetailMatRow[];
+  totalMaterialCost: number;
+  effectiveCost: number;
+  returnRatePct: number;
+  scenarioLabel: string;
+}> = ({ rows, totalMaterialCost, effectiveCost, returnRatePct, scenarioLabel }) => {
+  const linesSum = rows.reduce((acc, r) => acc + r.qty * r.unit, 0);
+  return (
+    <div className="cp-enchant-breakdown" style={{ padding: '4px 0 8px' }}>
+      <div className="cp-enchant-breakdown__title">Materiali — listino Lymhurst (sell min)</div>
+      {rows.length === 0 ? (
+        <p className="cp-enchant-breakdown__sub" style={{ margin: '6px 0' }}>
+          Nessuna riga ingredienti. Aggiorna i prezzi e ricalcola Focus.
+        </p>
+      ) : (
+        rows.map((row, ri) => {
+          const src = row.iconUrl || focusFallbackMaterialIconUrl(row.itemId);
+          const lineTot = row.qty * row.unit;
+          return (
+            <div key={`${row.itemId}-${ri}`} className="cp-enchant-breakdown__row">
+              <span className="cp-enchant-breakdown__label">
+                <span className="cp-enchant-breakdown__label-with-icon">
+                  <img
+                    src={src}
+                    alt=""
+                    className="cp-enchant-breakdown__icon"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <span className="cp-enchant-breakdown__label-text" title={row.itemId}>
+                    {row.label}
+                  </span>
+                </span>
+              </span>
+              <span className="cp-enchant-breakdown__val">
+                {row.qty}× {formatPrice(row.unit)} = {formatPrice(lineTot)}
+              </span>
+            </div>
+          );
+        })
+      )}
+      <div className="cp-enchant-breakdown__row">
+        <span className="cp-enchant-breakdown__label">Totale materie (listino)</span>
+        <span className="cp-enchant-breakdown__val">
+          {totalMaterialCost > 0 ? formatPrice(totalMaterialCost) : '—'}
+        </span>
+      </div>
+      {rows.length > 0 && linesSum > 0 && totalMaterialCost > 0 && Math.abs(linesSum - totalMaterialCost) > Math.max(500, totalMaterialCost * 0.02) && (
+        <p className="cp-enchant-breakdown__sub" style={{ margin: '4px 0 0' }}>
+          Nota: la somma delle righe ({formatPrice(linesSum)}) può differire leggermente dal totale API (
+          {formatPrice(totalMaterialCost)}) per arrotondamenti o voci aggregate.
+        </p>
+      )}
+      <div className="cp-enchant-breakdown__row">
+        <span className="cp-enchant-breakdown__label">RRR ({scenarioLabel})</span>
+        <span className="cp-enchant-breakdown__val">
+          {Number.isFinite(returnRatePct) ? `${returnRatePct}%` : '—'}
+        </span>
+      </div>
+      <div className="cp-enchant-breakdown__row cp-enchant-breakdown__row--sum">
+        <span className="cp-enchant-breakdown__label">Costo effettivo craft</span>
+        <span className="cp-enchant-breakdown__val">
+          {effectiveCost > 0 ? formatPrice(effectiveCost) : '—'}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 function isFocusFoodOrPotionItemId(itemId: string): boolean {
   const u = itemId.toLowerCase();
@@ -1061,6 +1209,30 @@ const FocusPage: React.FC = () => {
                   </IonCardContent>
                 </IonCard>
               )}
+              {detailBasicItem && !detailItem && (
+                <IonCard className="focus-detail-card" style={{ marginBottom: 12 }}>
+                  <IonCardHeader>
+                    <IonCardTitle>Costo craft (dettaglio)</IonCardTitle>
+                  </IonCardHeader>
+                  <IonCardContent>
+                    <FocusDetailMaterialBreakdown
+                      rows={buildFocusMaterialRows(detailBasicItem)}
+                      totalMaterialCost={detailBasicItem.totalMaterialCost}
+                      effectiveCost={
+                        scenarioWithFocus
+                          ? detailBasicItem.effectiveCostWithFocus
+                          : (detailBasicItem.effectiveCostWithoutFocus ?? detailBasicItem.effectiveCostWithFocus)
+                      }
+                      returnRatePct={
+                        scenarioWithFocus
+                          ? detailBasicItem.returnRateWithFocus
+                          : (detailBasicItem.returnRateWithoutFocus ?? 0)
+                      }
+                      scenarioLabel={scenarioWithFocus ? 'con focus' : 'senza focus'}
+                    />
+                  </IonCardContent>
+                </IonCard>
+              )}
               {detailItem && detailItem.iconUrl && (
                 <img src={detailItem.iconUrl} alt="" className="detail-hero-icon" />
               )}
@@ -1089,6 +1261,22 @@ const FocusPage: React.FC = () => {
                 <div className="detail-missing-banner">
                   <strong>Non più nell&apos;elenco Focus attuale.</strong> Valori &quot;ora&quot; non disponibili; sotto i dati al salvataggio.
                 </div>
+              )}
+              {detailItem && !detailItem.currentDataMissing && (
+                <IonCard className="focus-detail-card" style={{ marginBottom: 12 }}>
+                  <IonCardHeader>
+                    <IonCardTitle>Costo craft (dettaglio)</IonCardTitle>
+                  </IonCardHeader>
+                  <IonCardContent>
+                    <FocusDetailMaterialBreakdown
+                      rows={buildFocusMaterialRows(detailItem)}
+                      totalMaterialCost={detailItem.totalMaterialCost}
+                      effectiveCost={detailItem.effectiveCostWithFocus}
+                      returnRatePct={detailItem.returnRateWithFocus}
+                      scenarioLabel={detailItem.savedWithFocus !== false ? 'con focus' : 'senza focus'}
+                    />
+                  </IonCardContent>
+                </IonCard>
               )}
               {detailItem && (
                 <>
