@@ -287,7 +287,9 @@ const HomePage: React.FC = () => {
               className="home-hero-logo"
             />
             <h1 className="home-hero-title">Lymhurst</h1>
-            <p className="home-hero-tag">Prezzi materiali e ingredienti base (cibo/pozioni) · media 7 giorni</p>
+            <p className="home-hero-tag">
+              Prezzi materiali e ingredienti base (cibo/pozioni: chopped fish, seaweed, animal remains) · media 7 giorni
+            </p>
             <p className="home-hero-foot">Albus · Janraion</p>
           </header>
 
