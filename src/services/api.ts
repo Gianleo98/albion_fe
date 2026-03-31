@@ -226,10 +226,12 @@ export const getRoyalContinentFlipProfits = async (
   sortBy: string = 'PROFIT',
   sortDirection: 'ASC' | 'DESC' = 'DESC',
   nameSearch?: string,
-  royalPath: 'BO' | 'SO' = 'BO'
+  royalPath: 'BO' | 'SO' = 'BO',
+  lymhurstLocalHomeItems?: boolean
 ): Promise<PageResponse<RoyalContinentFlipResponse>> => {
   const params: Record<string, unknown> = { page, size, sortBy, sortDirection, royalPath };
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
+  if (lymhurstLocalHomeItems) params.lymhurstLocalHomeItems = true;
   const { data } = await api.get<PageResponse<RoyalContinentFlipResponse>>('/api/flip/royal-continent', { params });
   return data;
 };

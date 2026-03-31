@@ -37,6 +37,8 @@ import {
   bookmarkOutline,
   trashOutline,
   listOutline,
+  homeOutline,
+  home,
 } from 'ionicons/icons';
 import {
   getFlipProfits,
@@ -109,6 +111,8 @@ const FlipPage: React.FC = () => {
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
   /** Royal: BO = listino → buy order; SO = listino → sell listino */
   const [royalFlipPath, setRoyalFlipPath] = useState<'BO' | 'SO'>('BO');
+  /** Solo item homepage + rotte dove partenza o arrivo mammouth è sempre Lymhurst (vs FS/BW); stima carico */
+  const [lymhurstLocalHomeFlip, setLymhurstLocalHomeFlip] = useState(false);
   const [lastRoyalComputedHint, setLastRoyalComputedHint] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountSearchRef = useRef(false);
@@ -131,6 +135,13 @@ const FlipPage: React.FC = () => {
     void fetchItems(0, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ordinamento gestito da handleSortChange
   }, [nameSearch, materialsUnderAvg]);
+
+  useEffect(() => {
+    if (flipListMode !== 'royal') return;
+    setLoading(true);
+    void fetchItems(0, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ordinamento gestito da handleSortChange
+  }, [lymhurstLocalHomeFlip]);
 
   useEffect(() => {
     if (!didMountModeRef.current) {
@@ -190,7 +201,8 @@ const FlipPage: React.FC = () => {
             sort,
             direction,
             nameSearch || undefined,
-            royalFlipPath
+            royalFlipPath,
+            lymhurstLocalHomeFlip || undefined
           );
           if (reset) {
             setItems(data.content);
@@ -232,7 +244,7 @@ const FlipPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [sortBy, sortDirection, nameSearch, materialsUnderAvg, flipListMode, royalFlipPath]
+    [sortBy, sortDirection, nameSearch, materialsUnderAvg, flipListMode, royalFlipPath, lymhurstLocalHomeFlip]
   );
 
   const fetchSavedIds = useCallback(async () => {
@@ -364,6 +376,8 @@ const FlipPage: React.FC = () => {
       const next = m === 'bm' ? 'royal' : 'bm';
       if (next === 'royal') {
         setRoyalFlipPath('BO');
+      } else {
+        setLymhurstLocalHomeFlip(false);
       }
       return next;
     });
@@ -494,6 +508,17 @@ const FlipPage: React.FC = () => {
                 {recomputing ? <IonSpinner name="crescent" style={{ width: 20, height: 20 }} /> : <IonIcon icon={refreshOutline} />}
               </button>
             )}
+            {flipListMode === 'royal' && (
+              <button
+                type="button"
+                className={`cp-filter-below-btn ${lymhurstLocalHomeFlip ? 'active' : ''}`}
+                onClick={() => setLymhurstLocalHomeFlip((v) => !v)}
+                title="Homepage: materiali base + rune/soul/relic T5–T8. Mammouth: solo se Lymhurst è partenza o destinazione (l’altra città: Bridgewatch o Fort Sterling). Profitto già netto di tassa; su sell listino anche setup 2,5%. Capacità mammouth: backend application.properties."
+                aria-label="Filtro Lymhurst materiali homepage"
+              >
+                <IonIcon icon={lymhurstLocalHomeFlip ? home : homeOutline} />
+              </button>
+            )}
             <button
               type="button"
               className={`cp-filter-below-btn ${
@@ -534,8 +559,12 @@ const FlipPage: React.FC = () => {
               (usa la lista Caerleon → BM). Compri al <strong>listino minimo</strong> in una città. Il filtro a destra
               alterna solo <strong>listino → buy order</strong> (icona carrello) o solo{' '}
               <strong>listino → sell listino</strong> (icona tag). Buy order: solo tassa mercato; sell listino: tassa +{' '}
-              <strong>2,5% setup</strong>. Usa <strong>aggiorna</strong> accanto al globo dopo &quot;Aggiorna Royal
-              Continent&quot;.
+              <strong>2,5% setup</strong>. L&apos;icona <strong>casa</strong> limita agli item della{' '}
+              <strong>homepage</strong> e alle rotte in cui <strong>Lymhurst è sempre partenza o arrivo</strong> (vs
+              Bridgewatch o Fort Sterling), con stima
+              unità e profitto per <strong>viaggio mammouth</strong> (capacità configurabile sul backend). Ordina per{' '}
+              <strong>Profitto viaggio mammouth (stima)</strong> per confrontare il carico. Usa{' '}
+              <strong>aggiorna</strong> accanto al globo dopo &quot;Aggiorna Royal Continent&quot;.
               {lastRoyalComputedHint && (
                 <>
                   {' '}
@@ -942,6 +971,24 @@ const FlipPage: React.FC = () => {
                             ? `Ricavo: solo tassa mercato ${r.taxPercentApplied}% (nessun setup 2,5%).`
                             : `Ricavo: tassa ${r.taxPercentApplied}% + setup listino 2,5% (come Focus).`}
                         </div>
+                        {r.mammothMaxWeightKgApplied != null &&
+                          r.mammothMaxWeightKgApplied > 0 &&
+                          (r.mammothUnitsPerTrip ?? 0) > 0 &&
+                          (r.mammothTripProfitSilver ?? 0) > 0 && (
+                            <div style={{ fontSize: '0.72rem', opacity: 0.78, marginTop: 4 }}>
+                              Mammouth ~{r.mammothUnitsPerTrip} u × ~{r.estimatedItemWeightKg?.toFixed(2)} kg/u ·{' '}
+                              <strong>+{formatPrice(r.mammothTripProfitSilver!)}</strong> / viaggio (
+                              {Math.round(r.mammothMaxWeightKgApplied)} kg)
+                            </div>
+                          )}
+                        {r.mammothMaxWeightKgApplied != null &&
+                          (r.mammothUnitsPerTrip ?? 0) === 0 &&
+                          lymhurstLocalHomeFlip && (
+                            <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 2 }}>
+                              Stima peso: oltre capacità mammouth ({Math.round(r.mammothMaxWeightKgApplied)} kg) — profitto
+                              solo per unità.
+                            </div>
+                          )}
                       </IonLabel>
                       <div slot="end" className="cp-profit-col">
                         <span className="cp-profit positive" title="Profitto sul percorso selezionato">

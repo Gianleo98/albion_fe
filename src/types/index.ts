@@ -226,6 +226,11 @@ export interface RoyalContinentFlipResponse {
   soProfit: number;
   soProfitPercentage: number;
   computedAt: string;
+  /** Presenti con filtro Lymhurst + materiali home: stima peso e profitto per viaggio mammouth */
+  estimatedItemWeightKg?: number | null;
+  mammothUnitsPerTrip?: number | null;
+  mammothTripProfitSilver?: number | null;
+  mammothMaxWeightKgApplied?: number | null;
 }
 
 // --- Enchanting (verso .3, Lymhurst) ---
