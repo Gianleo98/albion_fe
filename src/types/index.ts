@@ -298,8 +298,16 @@ export interface EnchantmentMaterialStripResponse {
   updatedAt: string;
 }
 
+/** Chiave salvataggio enchanting (stesso itemId API + tier finale .1/.2/.3). */
+export interface EnchantingSavedKey {
+  itemId: string;
+  finalEnchant: 1 | 2 | 3;
+}
+
 export interface SavedEnchantingItemResponse {
   itemId: string;
+  /** Prodotto finale tracciato al salvataggio. */
+  finalEnchant: number;
   baseItemId: string;
   tier: number;
   iconUrl: string | null;

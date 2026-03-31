@@ -48,7 +48,8 @@ import {
   getEnchantingProfits,
   getEnchantingProfitByItemId,
   getEnchantingProfitSortOptions,
-  getSavedEnchantingItemIds,
+  getSavedEnchantingKeys,
+  enchantingSavedCompositeKey,
   saveEnchantingItem,
   deleteSavedEnchantingItem,
   getSavedEnchantingItemsWithCurrent,
@@ -588,7 +589,8 @@ const EnchantPathCostBreakdown: React.FC<{
 const EnchantingPage: React.FC = () => {
   const [items, setItems] = useState<EnchantingProfitResponse[]>([]);
   const [savedItems, setSavedItems] = useState<SavedEnchantingItemResponse[]>([]);
-  const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
+  /** Chiavi composite itemId + finalEnchant (enchantingSavedCompositeKey). */
+  const [savedEnchantKeySet, setSavedEnchantKeySet] = useState<Set<string>>(new Set());
   const [listMode, setListMode] = useState<ListMode>('all');
   const [sortOptions, setSortOptions] = useState<SortOption[]>([]);
   const [sortBy, setSortBy] = useState('BEST_PROFIT');
@@ -602,7 +604,11 @@ const EnchantingPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [profitPathView, setProfitPathView] = useState<ProfitPathView>('3');
-  const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean } | null>(null);
+  const [saveAlertItem, setSaveAlertItem] = useState<{
+    itemId: string;
+    finalEnchant: number;
+    isSaved: boolean;
+  } | null>(null);
   const [detailItem, setDetailItem] = useState<SavedEnchantingItemResponse | null>(null);
   const [detailBasicItem, setDetailBasicItem] = useState<EnchantingProfitResponse | null>(null);
   const [trListed, setTrListed] = useState(false);
@@ -616,6 +622,11 @@ const EnchantingPage: React.FC = () => {
   const [presentToast] = useIonToast();
 
   const enchantPriceAvgs = useMemo(() => buildEnchantListPriceAvgs(items), [items]);
+
+  const filteredSavedItems = useMemo(
+    () => savedItems.filter((s) => Number(s.finalEnchant ?? 3) === Number(profitPathView)),
+    [savedItems, profitPathView]
+  );
 
   useEffect(() => {
     searchDebounceRef.current = setTimeout(() => setNameSearch(searchInput), 400);
@@ -674,10 +685,12 @@ const EnchantingPage: React.FC = () => {
     void fetchItems(0, true);
   }, [profitPathView, listMode, fetchItems]);
 
-  const fetchSavedIds = useCallback(async () => {
+  const fetchSavedKeys = useCallback(async () => {
     try {
-      const ids = await getSavedEnchantingItemIds();
-      setSavedItemIds(new Set(ids));
+      const keys = await getSavedEnchantingKeys();
+      setSavedEnchantKeySet(
+        new Set(keys.map((k) => enchantingSavedCompositeKey(k.itemId, k.finalEnchant)))
+      );
     } catch {
       /* ignore */
     }
@@ -700,7 +713,7 @@ const EnchantingPage: React.FC = () => {
       setLoading(true);
       const optionsData = await getEnchantingProfitSortOptions();
       setSortOptions(optionsData);
-      await fetchSavedIds();
+      await fetchSavedKeys();
     } catch {
       /* ignore */
     }
@@ -724,30 +737,40 @@ const EnchantingPage: React.FC = () => {
       setTrSell((detailItem.sellAvailability as AvailabilityLevelCode) || 'NONE');
       setTrStock((detailItem.stockAvailability as AvailabilityLevelCode) || 'NONE');
     }
-  }, [detailItem?.itemId, detailItem?.listedForSale, detailItem?.sellAvailability, detailItem?.stockAvailability]);
+  }, [
+    detailItem?.itemId,
+    detailItem?.finalEnchant,
+    detailItem?.listedForSale,
+    detailItem?.sellAvailability,
+    detailItem?.stockAvailability,
+  ]);
 
-  const openSaveAlert = (itemId: string, isSaved: boolean) => {
-    setSaveAlertItem({ itemId, isSaved });
+  const openSaveAlert = (itemId: string, finalEnchant: number, isSaved: boolean) => {
+    setSaveAlertItem({ itemId, finalEnchant, isSaved });
   };
 
   const handleSaveOrRemoveConfirm = async () => {
     if (!saveAlertItem) return;
-    const { itemId, isSaved } = saveAlertItem;
+    const { itemId, finalEnchant, isSaved } = saveAlertItem;
+    const key = enchantingSavedCompositeKey(itemId, finalEnchant);
     try {
       if (isSaved) {
-        await deleteSavedEnchantingItem(itemId);
-        setSavedItemIds((prev) => {
+        await deleteSavedEnchantingItem(itemId, finalEnchant);
+        setSavedEnchantKeySet((prev) => {
           const next = new Set(prev);
-          next.delete(itemId);
+          next.delete(key);
           return next;
         });
         if (listMode === 'saved') {
-          setSavedItems((prev) => prev.filter((s) => s.itemId !== itemId));
+          setSavedItems((prev) =>
+            prev.filter((s) => !(s.itemId === itemId && Number(s.finalEnchant ?? 3) === finalEnchant))
+          );
         }
         presentToast({ message: 'Rimosso dai salvati.', duration: 2000, color: 'medium', position: 'top' });
       } else {
-        await saveEnchantingItem(itemId);
-        setSavedItemIds((prev) => new Set(prev).add(itemId));
+        await saveEnchantingItem(itemId, finalEnchant as 1 | 2 | 3);
+        setSavedEnchantKeySet((prev) => new Set(prev).add(key));
+        void fetchSavedList();
         presentToast({ message: 'Aggiunto ai salvati.', duration: 2000, color: 'success', position: 'top' });
       }
     } catch {
@@ -758,11 +781,13 @@ const EnchantingPage: React.FC = () => {
     }
   };
 
-  const openDetail = async (itemId: string) => {
+  const openDetail = async (s: SavedEnchantingItemResponse) => {
     if (listMode !== 'saved') return;
+    const fe = Number(s.finalEnchant ?? 3) as 1 | 2 | 3;
+    setProfitPathView(String(fe) as ProfitPathView);
     const [detail, curr] = await Promise.all([
-      getSavedEnchantingItemDetail(itemId),
-      getEnchantingProfitByItemId(itemId),
+      getSavedEnchantingItemDetail(s.itemId, fe),
+      getEnchantingProfitByItemId(s.itemId),
     ]);
     if (detail) {
       setDetailItem(detail);
@@ -771,9 +796,10 @@ const EnchantingPage: React.FC = () => {
   };
 
   const openEnchantDetailForItem = async (item: EnchantingProfitResponse) => {
-    // Se l'item è già salvato, apriamo il dettaglio “salvato” (con note/track).
-    if (savedItemIds.has(item.itemId)) {
-      const detail = await getSavedEnchantingItemDetail(item.itemId);
+    const fe = Number(profitPathView) as 1 | 2 | 3;
+    const key = enchantingSavedCompositeKey(item.itemId, fe);
+    if (savedEnchantKeySet.has(key)) {
+      const detail = await getSavedEnchantingItemDetail(item.itemId, fe);
       if (detail) {
         setDetailItem(detail);
         setDetailBasicItem(item);
@@ -781,7 +807,6 @@ const EnchantingPage: React.FC = () => {
       }
     }
 
-    // Altrimenti: dettaglio “base” (solo breakdown/profitti).
     setDetailBasicItem(item);
     setDetailItem(null);
   };
@@ -790,11 +815,15 @@ const EnchantingPage: React.FC = () => {
     if (!detailItem) return;
     setTrackSaving(true);
     try {
-      const updated = await patchSavedEnchantingTracking(detailItem.itemId, {
-        listedForSale: trListed,
-        sellAvailability: trSell,
-        stockAvailability: trStock,
-      });
+      const updated = await patchSavedEnchantingTracking(
+        detailItem.itemId,
+        Number(detailItem.finalEnchant ?? 3),
+        {
+          listedForSale: trListed,
+          sellAvailability: trSell,
+          stockAvailability: trStock,
+        }
+      );
       setDetailItem(updated);
       await fetchSavedList();
       presentToast({ message: 'Note salvate.', duration: 2000, color: 'success', position: 'top' });
@@ -807,7 +836,7 @@ const EnchantingPage: React.FC = () => {
 
   const handleRefresh = async (event: CustomEvent) => {
     setError(null);
-    await fetchSavedIds();
+    await fetchSavedKeys();
     if (listMode === 'saved') {
       setLoading(true);
       await fetchSavedList();
@@ -842,7 +871,7 @@ const EnchantingPage: React.FC = () => {
         onEnchantingUpdated={() => {
           void fetchItems(0, true);
           void fetchSavedList();
-          void fetchSavedIds();
+          void fetchSavedKeys();
         }}
       />
       <IonContent fullscreen>
@@ -864,6 +893,28 @@ const EnchantingPage: React.FC = () => {
             </IonSegmentButton>
           </IonSegment>
 
+          {(listMode === 'all' || listMode === 'saved') && (
+            <IonSegment
+              value={profitPathView}
+              onIonChange={(e) => {
+                const v = e.detail.value;
+                if (v === '1' || v === '2' || v === '3') setProfitPathView(v);
+              }}
+              className="cp-segment"
+              style={{ margin: '0 0 8px' }}
+            >
+              <IonSegmentButton value="1" title="Prodotto finale .1: profitto vendendo l’item @1">
+                <IonLabel>.1</IonLabel>
+              </IonSegmentButton>
+              <IonSegmentButton value="2" title="Prodotto finale .2: profitto vendendo l’item @2">
+                <IonLabel>.2</IonLabel>
+              </IonSegmentButton>
+              <IonSegmentButton value="3" title="Prodotto finale .3: profitto vendendo l’item @3 (percorso costo min)">
+                <IonLabel>.3</IonLabel>
+              </IonSegmentButton>
+            </IonSegment>
+          )}
+
           {listMode === 'all' && (
             <>
               <div className="cp-search-row">
@@ -876,26 +927,6 @@ const EnchantingPage: React.FC = () => {
                   />
                 </IonItem>
               </div>
-
-              <IonSegment
-                value={profitPathView}
-                onIonChange={(e) => {
-                  const v = e.detail.value;
-                  if (v === '1' || v === '2' || v === '3') setProfitPathView(v);
-                }}
-                className="cp-segment"
-                style={{ margin: '0 0 8px' }}
-              >
-                <IonSegmentButton value="1" title="Prodotto finale .1: profitto vendendo l’item @1">
-                  <IonLabel>.1</IonLabel>
-                </IonSegmentButton>
-                <IonSegmentButton value="2" title="Prodotto finale .2: profitto vendendo l’item @2">
-                  <IonLabel>.2</IonLabel>
-                </IonSegmentButton>
-                <IonSegmentButton value="3" title="Prodotto finale .3: profitto vendendo l’item @3 (percorso costo min)">
-                  <IonLabel>.3</IonLabel>
-                </IonSegmentButton>
-              </IonSegment>
 
               <div className="cp-toolbar">
                 {sortOptions.length > 0 && (
@@ -960,7 +991,9 @@ const EnchantingPage: React.FC = () => {
                     {items
                       .filter((item) => item.iconUrl && !failedIcons.has(item.itemId))
                       .map((item) => {
-                        const isSaved = savedItemIds.has(item.itemId);
+                        const isSaved = savedEnchantKeySet.has(
+                          enchantingSavedCompositeKey(item.itemId, Number(profitPathView))
+                        );
                         const refSell1 = enchantRefAvg(enchantPriceAvgs.sell1, item.tier);
                         const refSell2 = enchantRefAvg(enchantPriceAvgs.sell2, item.tier);
                         const refSell3 = enchantRefAvg(enchantPriceAvgs.sell3, item.tier);
@@ -1089,10 +1122,13 @@ const EnchantingPage: React.FC = () => {
                                 )}
                               </div>
                             </IonItem>
-                            <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(item.itemId, isSaved)}>
+                            <IonItemOptions
+                              side="end"
+                              onIonSwipe={() => openSaveAlert(item.itemId, Number(profitPathView), isSaved)}
+                            >
                               <IonItemOption
                                 color={isSaved ? 'danger' : 'success'}
-                                onClick={() => openSaveAlert(item.itemId, isSaved)}
+                                onClick={() => openSaveAlert(item.itemId, Number(profitPathView), isSaved)}
                               >
                                 <IonIcon icon={isSaved ? trashOutline : bookmarkOutline} slot="start" />
                                 {isSaved ? 'Rimuovi' : 'Salva'}
@@ -1116,9 +1152,9 @@ const EnchantingPage: React.FC = () => {
             </div>
           )}
 
-          {listMode === 'saved' && !loading && savedItems.length > 0 && (
+          {listMode === 'saved' && !loading && savedItems.length > 0 && filteredSavedItems.length > 0 && (
             <IonList className="cp-list">
-              {savedItems.map((s) => {
+              {filteredSavedItems.map((s) => {
                 const profitShow = s.currentDataMissing ? s.savedBestProfit : s.currentBestProfit;
                 const sellNeedsSetup = s.sellAvailability === 'NONE' || !s.sellAvailability;
                 const listed = !!s.listedForSale;
@@ -1129,12 +1165,12 @@ const EnchantingPage: React.FC = () => {
                     : `Non in vendita (${s.sellAvailabilityLabel ?? s.sellAvailability ?? '—'})`;
                 return (
                   <IonItemSliding
-                    key={s.itemId}
+                    key={enchantingSavedCompositeKey(s.itemId, Number(s.finalEnchant ?? 3))}
                     ref={(el) => {
                       slidingRefs.current[s.itemId] = el;
                     }}
                   >
-                    <IonItem className="cp-item" button onClick={() => openDetail(s.itemId)}>
+                    <IonItem className="cp-item" button onClick={() => void openDetail(s)}>
                       <div className="cp-item-left" slot="start">
                         {s.iconUrl ? (
                           <img src={s.iconUrl} alt="" className="cp-item-icon" loading="lazy" />
@@ -1172,6 +1208,7 @@ const EnchantingPage: React.FC = () => {
                             />
                           </span>
                           {cleanItemName(s.itemId)}
+                          <span style={{ opacity: 0.75, fontSize: '0.85em' }}> · .{s.finalEnchant ?? 3}</span>
                         </h3>
                         <div className="cp-meta cp-saved-live-meta">
                           {s.currentDataMissing ? (
@@ -1202,8 +1239,14 @@ const EnchantingPage: React.FC = () => {
                         </span>
                       </div>
                     </IonItem>
-                    <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(s.itemId, true)}>
-                      <IonItemOption color="danger" onClick={() => openSaveAlert(s.itemId, true)}>
+                    <IonItemOptions
+                      side="end"
+                      onIonSwipe={() => openSaveAlert(s.itemId, Number(s.finalEnchant ?? 3), true)}
+                    >
+                      <IonItemOption
+                        color="danger"
+                        onClick={() => openSaveAlert(s.itemId, Number(s.finalEnchant ?? 3), true)}
+                      >
                         <IonIcon icon={trashOutline} slot="start" />
                         Rimuovi
                       </IonItemOption>
@@ -1213,6 +1256,18 @@ const EnchantingPage: React.FC = () => {
               })}
             </IonList>
           )}
+
+          {listMode === 'saved' &&
+            !loading &&
+            savedItems.length > 0 &&
+            filteredSavedItems.length === 0 && (
+              <div className="cp-state-container">
+                <p>
+                  Nessun salvataggio per la vista <strong>.{profitPathView}</strong>. Usa il selettore .1 / .2 / .3
+                  sopra, oppure salva dalla lista principale con la vista desiderata.
+                </p>
+              </div>
+            )}
 
           {listMode === 'saved' && !loading && savedItems.length === 0 && (
             <div className="cp-state-container">
@@ -1225,7 +1280,11 @@ const EnchantingPage: React.FC = () => {
           isOpen={!!saveAlertItem}
           onDidDismiss={() => setSaveAlertItem(null)}
           header={saveAlertItem?.isSaved ? 'Rimuovere?' : 'Salvare?'}
-          message={saveAlertItem?.itemId}
+          message={
+            saveAlertItem
+              ? `${saveAlertItem.itemId}\nVista prodotto finale: .${saveAlertItem.finalEnchant}`
+              : undefined
+          }
           buttons={[
             { text: 'Annulla', role: 'cancel' },
             {
@@ -1340,12 +1399,12 @@ const EnchantingPage: React.FC = () => {
                       Percorso al salvataggio: {pathCodeLabel(detailItem.savedBestPath)} ({detailItem.savedBestPath})
                     </p>
                     <p style={{ margin: '4px 0' }}>
-                      Profitto al salvataggio: {formatProfitWithSign(detailItem.savedBestProfit)} · Listino .3:{' '}
-                      {formatPrice(detailItem.savedSellPrice3)}
+                      Profitto al salvataggio: {formatProfitWithSign(detailItem.savedBestProfit)} · Listino .
+                      {detailItem.finalEnchant ?? 3}: {formatPrice(detailItem.savedSellPrice3)}
                     </p>
                     <p style={{ margin: '4px 0' }}>
-                      Ora: profitto {formatProfitWithSign(detailItem.currentBestProfit)} · .3{' '}
-                      {formatPrice(detailItem.currentSellPrice3)}
+                      Ora: profitto {formatProfitWithSign(detailItem.currentBestProfit)} · .
+                      {detailItem.finalEnchant ?? 3} {formatPrice(detailItem.currentSellPrice3)}
                     </p>
 
                     <IonItem lines="none">
@@ -1418,12 +1477,12 @@ const EnchantingPage: React.FC = () => {
                     Percorso al salvataggio: {pathCodeLabel(detailItem.savedBestPath)} ({detailItem.savedBestPath})
                   </p>
                   <p>
-                    Profitto al salvataggio: {formatProfitWithSign(detailItem.savedBestProfit)} · Listino .3:{' '}
-                    {formatPrice(detailItem.savedSellPrice3)}
+                    Profitto al salvataggio: {formatProfitWithSign(detailItem.savedBestProfit)} · Listino .
+                    {detailItem.finalEnchant ?? 3}: {formatPrice(detailItem.savedSellPrice3)}
                   </p>
                   <p>
-                    Ora: profitto {formatProfitWithSign(detailItem.currentBestProfit)} · .3{' '}
-                    {formatPrice(detailItem.currentSellPrice3)}
+                    Ora: profitto {formatProfitWithSign(detailItem.currentBestProfit)} · .
+                    {detailItem.finalEnchant ?? 3} {formatPrice(detailItem.currentSellPrice3)}
                   </p>
                   <IonItem lines="none">
                     <IonLabel>In vendita</IonLabel>
