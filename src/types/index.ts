@@ -235,8 +235,6 @@ export interface RoyalContinentFlipResponse {
 
 // --- Refining (raw → città bonus, royal senza Caerleon) ---
 
-export type RefiningMountCode = 'MAMMOTH' | 'WINTER_BEAR_T8' | 'GRIZZLY' | 'OX_T8';
-
 export interface RefiningOpportunityResponse {
   resourceLine: string;
   resourceLineLabel: string;
@@ -248,11 +246,16 @@ export interface RefiningOpportunityResponse {
   buyRawCity: string;
   sellRefinedCity: string;
   batchProfitSilver: number;
-  tripProfitSilver: number;
-  mountCode: string;
-  mountMaxWeightKg: number;
-  estimatedRawKgPerBatch: number;
-  fullBatchesPerTripApprox: number;
+  /** Se assenti (backend vecchio), il FE usa la ladder T4–T8. */
+  rawInputPerBatch?: number;
+  lowerRefinedInputPerBatch?: number;
+  outputPerBatch?: number;
+  /** Sell order minimo per comprare 1 raw (dove acquisti). */
+  rawUnitBuySilver?: number;
+  /** Sell order minimo per comprare 1 raffinato (t−1) in città bonus. */
+  lowerRefinedUnitBuySilver?: number;
+  /** Buy order massimo per vendere 1 output (dove vendi), prima della tassa. */
+  outputUnitSellSilver?: number;
   taxPercentApplied: number;
   refinedIconUrl: string;
 }
@@ -264,7 +267,6 @@ export interface RefiningFocusMaterialDto {
   buyCity: string;
   unitPriceSilver: number;
   lineTotalSilver: number;
-  totalWeightKg: number;
 }
 
 export interface RefiningFocusPlanResponse {
@@ -285,16 +287,14 @@ export interface RefiningFocusPlanResponse {
   effectiveMaterialSilverPerBatch?: number;
   revenueSilverPerBatch?: number;
   profitSilverPerBatch?: number;
-  fullBatchesPerTripApprox?: number;
-  mountCode?: string;
-  mountMaxWeightKg?: number;
-  rawKgPerBatch?: number;
-  batchesListedForShopping?: number;
+  rawInputPerBatch?: number;
+  lowerRefinedInputPerBatch?: number;
+  outputPerBatch?: number;
+  /** Buy order max per 1 output .3 dove vendi. */
+  outputUnitSellSilver?: number;
   totalEffectiveMaterialSilverListed?: number;
   totalRevenueSilverListed?: number;
   profitSilverListed?: number;
-  profitSilverFullTripsOnly?: number;
-  transportNote?: string | null;
   taxPercentApplied?: number;
   materials?: RefiningFocusMaterialDto[];
   disclaimer?: string;

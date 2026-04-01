@@ -23,7 +23,6 @@ import type {
   SavedEnchantingItemResponse,
   EnchantingSavedKey,
   RefiningFocusPlanResponse,
-  RefiningMountCode,
   RefiningOpportunityResponse,
 } from '../types';
 
@@ -76,31 +75,31 @@ export const getMaterialPrices = async (): Promise<MaterialPriceResponse[]> => {
 
 export const getRefiningOpportunities = async (
   lymhurstAnchor: boolean,
-  mount: RefiningMountCode
+  excludeBrecilien = true
 ): Promise<RefiningOpportunityResponse[]> => {
   const { data } = await api.get<RefiningOpportunityResponse[]>('/api/refining/opportunities', {
-    params: { lymhurstAnchor, mount },
+    params: { lymhurstAnchor, excludeBrecilien },
   });
   return data;
 };
 
 export const getRefiningFocusPlan = async (
   lymhurstAnchor: boolean,
-  mount: RefiningMountCode
+  excludeBrecilien = true
 ): Promise<RefiningFocusPlanResponse> => {
   const { data } = await api.get<RefiningFocusPlanResponse>('/api/refining/focus-plan', {
-    params: { lymhurstAnchor, mount },
+    params: { lymhurstAnchor, excludeBrecilien },
   });
   return data;
 };
 
 export const getRefiningFocusPlans = async (
   lymhurstAnchor: boolean,
-  mount: RefiningMountCode,
-  limit = 30
+  limit = 30,
+  excludeBrecilien = true
 ): Promise<RefiningFocusPlanResponse[]> => {
   const { data } = await api.get<RefiningFocusPlanResponse[]>('/api/refining/focus-plans', {
-    params: { lymhurstAnchor, mount, limit },
+    params: { lymhurstAnchor, limit, excludeBrecilien },
   });
   return data;
 };

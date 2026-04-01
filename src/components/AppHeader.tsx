@@ -15,6 +15,7 @@ import {
   IonSelect,
   IonSelectOption,
   IonToggle,
+  IonListHeader,
   useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
@@ -27,8 +28,11 @@ import {
   checkmarkCircleOutline,
   globeOutline,
   sparklesOutline,
+  refreshOutline,
+  chevronDownOutline,
+  chevronForwardOutline,
 } from 'ionicons/icons';
-import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerRoyalContinentUpdate, triggerFocusProfitUpdate, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
+import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerRoyalContinentUpdate, triggerFocusProfitUpdate, recomputeRoyalContinentFlip, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
 import type { RateLimitStatus, CraftingBonusResponse, CraftingSettingsResponse } from '../types';
 import './AppHeader.css';
 
@@ -39,6 +43,8 @@ interface AppHeaderProps {
   onFlipUpdated?: () => void;
   /** Dopo aggiornamento mercati royal (stesso job di Royal Continent), ricarica lista enchanting */
   onEnchantingUpdated?: () => void;
+  /** Stesso job royal: ricarica tab Refining (arbitraggio / focus .3) */
+  onRefiningUpdated?: () => void;
   lastUpdate?: string | null;
 }
 
@@ -58,6 +64,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onFocusUpdated,
   onFlipUpdated,
   onEnchantingUpdated,
+  onRefiningUpdated,
   lastUpdate,
 }) => {
   const history = useHistory();
@@ -68,8 +75,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const [updatingCrafting, setUpdatingCrafting] = useState(false);
   const [updatingRoyalContinent, setUpdatingRoyalContinent] = useState(false);
   const [updatingFocus, setUpdatingFocus] = useState(false);
+  const [updatingRoyalFlip, setUpdatingRoyalFlip] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
-    'materials' | 'blackmarket' | 'craftingProfit' | 'royal' | 'enchanting' | 'focus' | null
+    | 'materials'
+    | 'blackmarket'
+    | 'craftingProfit'
+    | 'royal'
+    | 'enchanting'
+    | 'focus'
+    | 'royalFlip'
+    | null
   >(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const [craftingBonuses, setCraftingBonuses] = useState<CraftingBonusResponse | null>(null);
@@ -79,6 +94,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const [savingDailyBonus, setSavingDailyBonus] = useState(false);
   const [craftingSettings, setCraftingSettings] = useState<CraftingSettingsResponse | null>(null);
   const [savingPremium, setSavingPremium] = useState(false);
+  const [settingsExpandAggiorna, setSettingsExpandAggiorna] = useState(false);
+  const [settingsExpandRicalcola, setSettingsExpandRicalcola] = useState(false);
   const [presentToast] = useIonToast();
 
   const dailyBonusesSet = (craftingBonuses?.dailyBonuses?.length ?? 0) >= 1;
@@ -232,6 +249,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       });
       onFocusUpdated?.();
       onFlipUpdated?.();
+      onRefiningUpdated?.();
     } catch {
       presentToast({
         message: 'Errore aggiornamento Royal Continent (timeout o rate limit?). Riprova tra qualche minuto.',
@@ -258,6 +276,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       onEnchantingUpdated?.();
       onFocusUpdated?.();
       onFlipUpdated?.();
+      onRefiningUpdated?.();
     } catch {
       presentToast({
         message: 'Errore ricalcolo enchanting (stesso aggiornamento Royal Continent). Riprova tra qualche minuto.',
@@ -294,8 +313,37 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
+  const handleRecomputeRoyalFlip = async () => {
+    setConfirmAction(null);
+    setUpdatingRoyalFlip(true);
+    try {
+      const res = await recomputeRoyalContinentFlip();
+      presentToast({
+        message: `Flip Royal Continent: ${res.itemsStored} opportunità salvate.`,
+        duration: 3000,
+        color: 'success',
+        position: 'top',
+      });
+      onFlipUpdated?.();
+    } catch {
+      presentToast({
+        message: 'Ricalcolo flip Royal Continent fallito.',
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setUpdatingRoyalFlip(false);
+    }
+  };
+
   const updating =
-    updatingMaterials || updatingBM || updatingCrafting || updatingRoyalContinent || updatingFocus;
+    updatingMaterials ||
+    updatingBM ||
+    updatingCrafting ||
+    updatingRoyalContinent ||
+    updatingFocus ||
+    updatingRoyalFlip;
 
   return (
     <>
@@ -324,90 +372,152 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         className="settings-popover"
       >
         <IonList lines="full">
+          <IonListHeader className="settings-dati-header">
+            <IonLabel>Dati e ricalcoli</IonLabel>
+          </IonListHeader>
           <IonItem
             button
             detail={false}
-            disabled={updatingMaterials}
-            onClick={() => {
-              setPopoverOpen(false);
-              setConfirmAction('materials');
-            }}
+            className="settings-subgroup-toggle"
+            aria-expanded={settingsExpandAggiorna}
+            onClick={() => setSettingsExpandAggiorna((v) => !v)}
           >
-            {updatingMaterials
-              ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={layersOutline} slot="start" />}
-            <IonLabel>Aggiorna Materiali</IonLabel>
+            <IonLabel>Aggiorna</IonLabel>
+            <IonIcon
+              icon={settingsExpandAggiorna ? chevronDownOutline : chevronForwardOutline}
+              slot="end"
+              className="settings-subgroup-chevron"
+            />
           </IonItem>
+          {settingsExpandAggiorna && (
+            <>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updatingMaterials}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('materials');
+                }}
+              >
+                {updatingMaterials
+                  ? <IonSpinner name="dots" slot="start" />
+                  : <IonIcon icon={layersOutline} slot="start" />}
+                <IonLabel>Aggiorna Materiali</IonLabel>
+              </IonItem>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updatingBM}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('blackmarket');
+                }}
+              >
+                {updatingBM
+                  ? <IonSpinner name="dots" slot="start" />
+                  : <IonIcon icon={storefrontOutline} slot="start" />}
+                <IonLabel>Aggiorna Black Market</IonLabel>
+              </IonItem>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updatingRoyalContinent}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('royal');
+                }}
+              >
+                {updatingRoyalContinent
+                  ? <IonSpinner name="dots" slot="start" />
+                  : <IonIcon icon={globeOutline} slot="start" />}
+                <IonLabel>Aggiorna Royal Continent</IonLabel>
+              </IonItem>
+            </>
+          )}
           <IonItem
             button
             detail={false}
-            disabled={updatingBM}
-            onClick={() => {
-              setPopoverOpen(false);
-              setConfirmAction('blackmarket');
-            }}
+            className="settings-subgroup-toggle"
+            aria-expanded={settingsExpandRicalcola}
+            onClick={() => setSettingsExpandRicalcola((v) => !v)}
           >
-            {updatingBM
-              ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={storefrontOutline} slot="start" />}
-            <IonLabel>Aggiorna Black Market</IonLabel>
+            <IonLabel>Ricalcola</IonLabel>
+            <IonIcon
+              icon={settingsExpandRicalcola ? chevronDownOutline : chevronForwardOutline}
+              slot="end"
+              className="settings-subgroup-chevron"
+            />
           </IonItem>
-          <IonItem
-            button
-            detail={false}
-            disabled={updatingCrafting}
-            onClick={() => {
-              setPopoverOpen(false);
-              setConfirmAction('craftingProfit');
-            }}
-          >
-            {updatingCrafting
-              ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={hammerOutline} slot="start" />}
-            <IonLabel>Ricalcola Black Market</IonLabel>
-          </IonItem>
-          <IonItem
-            button
-            detail={false}
-            disabled={updatingRoyalContinent}
-            onClick={() => {
-              setPopoverOpen(false);
-              setConfirmAction('royal');
-            }}
-          >
-            {updatingRoyalContinent
-              ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={globeOutline} slot="start" />}
-            <IonLabel>Aggiorna Royal Continent</IonLabel>
-          </IonItem>
-          <IonItem
-            button
-            detail={false}
-            disabled={updatingRoyalContinent}
-            onClick={() => {
-              setPopoverOpen(false);
-              setConfirmAction('enchanting');
-            }}
-          >
-            {updatingRoyalContinent
-              ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={sparklesOutline} slot="start" />}
-            <IonLabel>Ricalcola Enchanting</IonLabel>
-          </IonItem>
-          <IonItem
-            button
-            detail={false}
-            disabled={updatingFocus}
-            onClick={() => {
-              setPopoverOpen(false);
-              setConfirmAction('focus');
-            }}
-          >
-            {updatingFocus
-              ? <IonSpinner name="dots" slot="start" />
-              : <IonIcon icon={flashOutline} slot="start" />}
-            <IonLabel>Ricalcola Focus</IonLabel>
-          </IonItem>
+          {settingsExpandRicalcola && (
+            <>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updatingCrafting}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('craftingProfit');
+                }}
+              >
+                {updatingCrafting
+                  ? <IonSpinner name="dots" slot="start" />
+                  : <IonIcon icon={hammerOutline} slot="start" />}
+                <IonLabel>Ricalcola Black Market</IonLabel>
+              </IonItem>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updatingRoyalContinent}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('enchanting');
+                }}
+              >
+                {updatingRoyalContinent
+                  ? <IonSpinner name="dots" slot="start" />
+                  : <IonIcon icon={sparklesOutline} slot="start" />}
+                <IonLabel>Ricalcola Enchanting</IonLabel>
+              </IonItem>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updatingFocus}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('focus');
+                }}
+              >
+                {updatingFocus
+                  ? <IonSpinner name="dots" slot="start" />
+                  : <IonIcon icon={flashOutline} slot="start" />}
+                <IonLabel>Ricalcola Focus</IonLabel>
+              </IonItem>
+              <IonItem
+                button
+                detail={false}
+                className="settings-nested-item"
+                disabled={updating}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  setConfirmAction('royalFlip');
+                }}
+              >
+                {updatingRoyalFlip ? (
+                  <IonSpinner name="dots" slot="start" />
+                ) : (
+                  <IonIcon icon={refreshOutline} slot="start" />
+                )}
+                <IonLabel>Ricalcola flip Royal Continent</IonLabel>
+              </IonItem>
+            </>
+          )}
           <div className="settings-section settings-section-bonus">
             <div className="settings-section-header">
               <span className="settings-section-label">Bonus crafting daily</span>
@@ -552,7 +662,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         isOpen={confirmAction === 'royal'}
         onDidDismiss={() => setConfirmAction(null)}
         header="Aggiorna Royal Continent"
-        message="Scarica i prezzi per Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford, Brecilien e Caerleon (una query API per batch su tutte le città). Poi ricalcola Focus. Può richiedere diversi minuti e molte chiamate API."
+        message="Scarica i prezzi per Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford, Brecilien e Caerleon (una query API per batch su tutte le città). Poi ricalcola flip royal, Focus e Refining. Può richiedere diversi minuti e molte chiamate API."
         buttons={[
           { text: 'Annulla', role: 'cancel' },
           { text: 'Avvia', handler: handleUpdateRoyalContinent },
@@ -578,6 +688,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         buttons={[
           { text: 'Annulla', role: 'cancel' },
           { text: 'Avvia', handler: handleRecalcEnchanting },
+        ]}
+      />
+
+      <IonAlert
+        isOpen={confirmAction === 'royalFlip'}
+        onDidDismiss={() => setConfirmAction(null)}
+        header="Ricalcola flip Royal Continent"
+        message="Ricalcola le opportunità tra Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford e Brecilien (Caerleon esclusa) usando i prezzi già salvati. Non scarica nuovi prezzi: usa «Aggiorna Royal Continent» se i dati sono vecchi."
+        buttons={[
+          { text: 'Annulla', role: 'cancel' },
+          { text: 'Ricalcola', handler: handleRecomputeRoyalFlip },
         ]}
       />
 

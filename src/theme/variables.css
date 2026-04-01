@@ -78,5 +78,13 @@
     --ion-item-background: #1a1a2e;
     --ion-toolbar-background: #16162b;
     --ion-tab-bar-background: #16162b;
+
+    /* Evita superfici chiarissime: in :root --ion-color-light resta grigio chiaro (pensato per tema light). */
+    --ion-color-light: #222236;
+    --ion-color-light-rgb: 34, 34, 54;
+    --ion-color-light-contrast: #e8e8ed;
+    --ion-color-light-contrast-rgb: 232, 232, 237;
+    --ion-color-light-shade: #1e1e30;
+    --ion-color-light-tint: #38384a;
   }
 }

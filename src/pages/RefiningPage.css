@@ -1,0 +1,399 @@
+/* Refining — layout più leggibile (superfici da tema: ok in dark con --ion-card-background) */
+
+.refining-recipe-banner {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  border-radius: 10px;
+  background: var(--ion-card-background, var(--ion-item-background, var(--ion-background-color)));
+  border: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12);
+  color: var(--ion-color-medium);
+}
+
+.refining-recipe-banner .refining-qty {
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: var(--ion-color-primary-tint);
+}
+
+.refining-prices-block {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border-radius: 10px;
+  border: 1px dashed rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.18);
+  background: var(--ion-card-background, var(--ion-item-background, var(--ion-background-color)));
+}
+
+.refining-prices-title {
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
+}
+
+.refining-prices-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.refining-prices-list li {
+  margin-bottom: 6px;
+  color: var(--ion-color-medium-shade);
+}
+
+.refining-prices-list li strong {
+  color: var(--ion-text-color);
+}
+
+/* Riepilogo pezzi (tab Opportunità): stessa idea del Focus .3 */
+.refining-shopping-summary {
+  margin: 0 0 10px;
+  padding: 12px 12px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.35);
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+}
+
+.refining-shopping-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.refining-shopping-rows li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--ion-color-medium);
+}
+
+.refining-shopping-rows li:last-child {
+  margin-bottom: 0;
+}
+
+.refining-shopping-qty {
+  flex-shrink: 0;
+  min-width: 2.5rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ion-color-primary-tint);
+  text-align: right;
+}
+
+.refining-shopping-desc strong {
+  color: var(--ion-text-color);
+  font-weight: 600;
+}
+
+.refining-help {
+  margin: 8px 12px 14px;
+  --background: transparent;
+}
+
+.refining-help ion-item[slot='header'] {
+  --min-height: 44px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.refining-help .refining-help-body {
+  padding: 0 16px 14px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ion-color-medium-shade);
+}
+
+.refining-help .refining-help-body ul {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+}
+
+.refining-help .refining-help-body li {
+  margin-bottom: 6px;
+}
+
+.refining-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 16px 10px;
+  flex-wrap: wrap;
+}
+
+.refining-list-toolbar-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ion-color-medium);
+}
+
+.refining-count-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(var(--ion-color-primary-rgb), 0.22);
+  color: var(--ion-color-primary-tint);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.35);
+}
+
+.refining-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.refining-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ion-color-medium-shade);
+}
+
+.refining-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: rgba(var(--ion-color-primary-rgb), 0.2);
+  color: var(--ion-color-primary-tint);
+}
+
+.refining-step strong {
+  color: var(--ion-text-color);
+  font-weight: 600;
+}
+
+.refining-item-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 2px;
+  color: var(--ion-text-color);
+}
+
+.refining-item-id {
+  font-size: 0.72rem;
+  opacity: 0.55;
+  font-family: ui-monospace, monospace;
+  margin: 0 0 4px;
+  word-break: break-all;
+}
+
+.refining-profit-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin-bottom: 2px;
+}
+
+.refining-empty {
+  text-align: center;
+  padding: 28px 20px 36px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.refining-empty-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--ion-text-color);
+}
+
+.refining-empty p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--ion-color-medium-shade);
+}
+
+.refining-focus-meta {
+  font-size: 0.72rem;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12);
+  opacity: 0.88;
+  line-height: 1.45;
+  color: var(--ion-color-medium);
+}
+
+.refining-disclaimer-foot {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ion-color-medium);
+  background: var(--ion-card-background, var(--ion-item-background, var(--ion-background-color)));
+  border-radius: 10px;
+  border: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12);
+}
+
+/* —— Lista compatta (mobile) —— */
+.refining-page--compact .cp-container {
+  padding-bottom: 24px;
+}
+
+.refining-segment-tight {
+  margin: 4px 8px 6px !important;
+}
+
+.refining-help--tight {
+  margin: 0 8px 6px !important;
+}
+
+.refining-help--tight ion-item[slot='header'] {
+  --min-height: 40px;
+  font-size: 0.82rem;
+}
+
+.refining-filter-list {
+  margin-bottom: 4px !important;
+}
+
+.refining-toggle-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.refining-toggle-sub {
+  font-size: 0.72rem;
+  opacity: 0.8;
+  margin: 2px 0 0;
+}
+
+.refining-list-hint {
+  margin: 4px 16px 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ion-color-medium);
+}
+
+.refining-compact-list {
+  padding-bottom: 16px !important;
+}
+
+.refining-compact-item {
+  --min-height: 56px;
+  --padding-start: 12px;
+  --inner-padding-end: 10px;
+}
+
+.refining-compact-thumb-wrap {
+  --size: 40px;
+  --border-radius: 8px;
+  margin-inline-end: 10px;
+}
+
+.refining-compact-thumb-wrap img {
+  object-fit: contain;
+}
+
+.refining-compact-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.refining-compact-sub {
+  font-size: 0.7rem;
+  margin: 3px 0 0;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.refining-compact-profit {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ion-color-success);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.refining-empty-icon {
+  font-size: 36px;
+  opacity: 0.45;
+  margin-bottom: 8px;
+}
+
+.refining-empty-text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--ion-color-medium-shade);
+  margin: 0;
+}
+
+/* —— Modal dettaglio —— */
+.refining-detail-body {
+  padding-bottom: 24px;
+}
+
+.refining-detail-hero {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.refining-detail-hero-icon {
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.refining-detail-hero-title {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.refining-detail-hero-id {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  opacity: 0.55;
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+}
+
+.refining-detail-hero-profit {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ion-color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.refining-detail-hero-profit-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.75;
+  color: var(--ion-color-medium);
+}
+
+.refining-detail-close-btn {
+  margin-top: 20px;
+}

@@ -21,6 +21,40 @@
   padding-bottom: 0;
 }
 
+.settings-dati-header {
+  margin-top: 4px;
+  padding-bottom: 4px;
+  min-height: auto;
+}
+
+.settings-dati-header ion-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ion-color-medium);
+}
+
+.settings-popover .settings-subgroup-toggle {
+  --background: rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.06);
+  font-weight: 600;
+}
+
+.settings-popover .settings-subgroup-toggle ion-label {
+  font-size: 0.95rem;
+}
+
+.settings-popover .settings-subgroup-chevron {
+  font-size: 1.1rem;
+  color: var(--ion-color-medium);
+}
+
+.settings-popover .settings-nested-item {
+  --padding-start: 28px;
+  --inner-padding-end: 8px;
+  font-size: 0.92rem;
+}
+
 .popover-footer {
   padding: 8px 16px 10px;
   display: flex;

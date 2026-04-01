@@ -31,7 +31,6 @@ import {
   funnel,
   globeOutline,
   globe,
-  refreshOutline,
   bagCheckOutline,
   pricetagOutline,
   bookmarkOutline,
@@ -45,7 +44,6 @@ import {
   getFlipProfitSortOptions,
   getRoyalContinentFlipProfits,
   getRoyalFlipSortOptions,
-  recomputeRoyalContinentFlip,
   getSavedFlipItemIds,
   saveFlipItem,
   deleteSavedFlipItem,
@@ -99,7 +97,6 @@ const FlipPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('PROFIT');
   const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
   const [loading, setLoading] = useState(true);
-  const [recomputing, setRecomputing] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -275,30 +272,6 @@ const FlipPage: React.FC = () => {
       else setSavedRoyalItems([]);
     }
   }, [flipListMode, royalFlipPath]);
-
-  const runRoyalRecompute = useCallback(async () => {
-    setRecomputing(true);
-    try {
-      const res = await recomputeRoyalContinentFlip();
-      presentToast({
-        message: `Royal cross: ${res.itemsStored} opportunità salvate.`,
-        duration: 2500,
-        color: 'success',
-        position: 'top',
-      });
-      setLoading(true);
-      await fetchItems(0, true);
-    } catch {
-      presentToast({
-        message: 'Ricalcolo Royal Continent fallito.',
-        duration: 2500,
-        color: 'danger',
-        position: 'top',
-      });
-    } finally {
-      setRecomputing(false);
-    }
-  }, [fetchItems, presentToast]);
 
   const fetchInitial = async () => {
     try {
@@ -499,18 +472,6 @@ const FlipPage: React.FC = () => {
             {flipListMode === 'royal' && (
               <button
                 type="button"
-                className="cp-filter-below-btn"
-                onClick={() => void runRoyalRecompute()}
-                disabled={recomputing}
-                title="Ricalcola opportunità tra Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford e Brecilien (Caerleon escluso)"
-                aria-label="Ricalcola flip Royal Continent"
-              >
-                {recomputing ? <IonSpinner name="crescent" style={{ width: 20, height: 20 }} /> : <IonIcon icon={refreshOutline} />}
-              </button>
-            )}
-            {flipListMode === 'royal' && (
-              <button
-                type="button"
                 className={`cp-filter-below-btn ${lymhurstLocalHomeFlip ? 'active' : ''}`}
                 onClick={() => setLymhurstLocalHomeFlip((v) => !v)}
                 title="Homepage: materiali base + rune/soul/relic T5–T8. Mammouth: solo se Lymhurst è partenza o destinazione (l’altra città: Bridgewatch o Fort Sterling). Profitto già netto di tassa; su sell listino anche setup 2,5%. Capacità mammouth: backend application.properties."
@@ -563,8 +524,10 @@ const FlipPage: React.FC = () => {
               <strong>homepage</strong> e alle rotte in cui <strong>Lymhurst è sempre partenza o arrivo</strong> (vs
               Bridgewatch o Fort Sterling), con stima
               unità e profitto per <strong>viaggio mammouth</strong> (capacità configurabile sul backend). Ordina per{' '}
-              <strong>Profitto viaggio mammouth (stima)</strong> per confrontare il carico. Usa{' '}
-              <strong>aggiorna</strong> accanto al globo dopo &quot;Aggiorna Royal Continent&quot;.
+              <strong>Profitto viaggio mammouth (stima)</strong> per confrontare il carico. In{' '}
+              <strong>Impostazioni</strong>, sotto Dati e ricalcoli espandi <strong>Ricalcola</strong> e usa{' '}
+              <strong>Ricalcola flip Royal Continent</strong>; se i prezzi sono vecchi, espandi <strong>Aggiorna</strong> e usa{' '}
+              <strong>Aggiorna Royal Continent</strong>.
               {lastRoyalComputedHint && (
                 <>
                   {' '}
@@ -641,8 +604,9 @@ const FlipPage: React.FC = () => {
                 </p>
               ) : (
                 <p style={{ fontSize: '0.9rem', marginTop: 8 }}>
-                  Tocca <strong>ricarica</strong> accanto al globo per calcolare le rotte tra le 6 città royal (senza Caerleon), oppure esegui{' '}
-                  <strong>Aggiorna Royal Continent</strong> dal menu (ricalcola anche questa lista).
+                  Apri <strong>Impostazioni</strong>, espandi <strong>Ricalcola</strong> sotto Dati e ricalcoli e scegli{' '}
+                  <strong>Ricalcola flip Royal Continent</strong>, oppure{' '}
+                  <strong>Aggiorna Royal Continent</strong> per scaricare prezzi e aggiornare anche questa lista.
                 </p>
               )}
             </div>
