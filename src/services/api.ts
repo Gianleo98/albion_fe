@@ -94,6 +94,17 @@ export const getRefiningFocusPlan = async (
   return data;
 };
 
+export const getRefiningFocusPlans = async (
+  lymhurstAnchor: boolean,
+  mount: RefiningMountCode,
+  limit = 30
+): Promise<RefiningFocusPlanResponse[]> => {
+  const { data } = await api.get<RefiningFocusPlanResponse[]>('/api/refining/focus-plans', {
+    params: { lymhurstAnchor, mount, limit },
+  });
+  return data;
+};
+
 // --- Scheduler ---
 
 export const triggerPriceUpdate = async (): Promise<{ message: string; itemsUpdated: number }> => {

@@ -1,26 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   IonButton,
-  IonButtons,
   IonContent,
-  IonHeader,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
-  IonModal,
   IonPage,
   IonRefresher,
   IonRefresherContent,
+  IonSegment,
+  IonSegmentButton,
   IonSelect,
   IonSelectOption,
   IonSpinner,
   IonText,
-  IonTitle,
   IonToggle,
-  IonToolbar,
+  useIonToast,
   useIonViewWillEnter,
 } from '@ionic/react';
-import { getRefiningFocusPlan, getRefiningOpportunities } from '../services/api';
+import { refreshOutline } from 'ionicons/icons';
+import {
+  getRefiningFocusPlans,
+  getRefiningOpportunities,
+  triggerRoyalContinentUpdate,
+} from '../services/api';
 import type { RefiningFocusPlanResponse, RefiningMountCode, RefiningOpportunityResponse } from '../types';
 import AppHeader from '../components/AppHeader';
 import './CraftingPage.css';
@@ -40,17 +44,25 @@ const DISCLAIMER =
   'Bridgewatch minerale, Martlock pelle, Lymhurst tessuto), vendi l’output a buy order nella città di vendita. ' +
   'Ricetta fissata a 200 raw + 100 raffinato (t−1) → 100 output (senza focus / return rate). Pesi mount da application.properties.';
 
+const FOCUS_HINT =
+  'Tab Focus .3: materiali _LEVEL3@3, costo equivalente con focus (RRR come crafting). Lista ordinata per profitto trip.';
+
+type ViewMode = 'arbitrage' | 'focus';
+
 const RefiningPage: React.FC = () => {
+  const [presentToast] = useIonToast();
+  const [view, setView] = useState<ViewMode>('arbitrage');
   const [rows, setRows] = useState<RefiningOpportunityResponse[]>([]);
+  const [focusRows, setFocusRows] = useState<RefiningFocusPlanResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [focusLoading, setFocusLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focusError, setFocusError] = useState<string | null>(null);
   const [lymhurstAnchor, setLymhurstAnchor] = useState(true);
   const [mount, setMount] = useState<RefiningMountCode>('MAMMOTH');
-  const [focusOpen, setFocusOpen] = useState(false);
-  const [focusPlan, setFocusPlan] = useState<RefiningFocusPlanResponse | null>(null);
-  const [focusLoading, setFocusLoading] = useState(false);
+  const [royalUpdating, setRoyalUpdating] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadArbitrage = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
@@ -64,37 +76,66 @@ const RefiningPage: React.FC = () => {
     }
   }, [lymhurstAnchor, mount]);
 
+  const loadFocus = useCallback(async () => {
+    try {
+      setFocusError(null);
+      setFocusLoading(true);
+      const data = await getRefiningFocusPlans(lymhurstAnchor, mount, 40);
+      setFocusRows(data.filter((r) => r.found));
+    } catch {
+      setFocusError('Impossibile caricare i piani focus.');
+      setFocusRows([]);
+    } finally {
+      setFocusLoading(false);
+    }
+  }, [lymhurstAnchor, mount]);
+
   useIonViewWillEnter(() => {
-    void load();
+    void loadArbitrage();
+    void loadFocus();
   });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadArbitrage();
+  }, [loadArbitrage]);
+
+  useEffect(() => {
+    if (view === 'focus') {
+      void loadFocus();
+    }
+  }, [view, loadFocus]);
 
   const handleRefresh = async (event: CustomEvent) => {
-    await load();
+    if (view === 'arbitrage') {
+      await loadArbitrage();
+    } else {
+      await loadFocus();
+    }
     event.detail.complete();
   };
 
-  const openFocusPlanModal = () => {
-    setFocusOpen(true);
-    setFocusPlan(null);
-    setFocusLoading(true);
-    void (async () => {
-      try {
-        const p = await getRefiningFocusPlan(lymhurstAnchor, mount);
-        setFocusPlan(p);
-      } catch {
-        setFocusPlan({
-          found: false,
-          enchantmentLevel: 3,
-          disclaimer: 'Impossibile caricare il piano focus.',
-        });
-      } finally {
-        setFocusLoading(false);
-      }
-    })();
+  const runRoyalRecalc = async () => {
+    setRoyalUpdating(true);
+    try {
+      const res = await triggerRoyalContinentUpdate();
+      presentToast({
+        message: `Royal aggiornato: ${res.priceRowsWritten} prezzi; Focus ${res.focusItemsUpdated} righe.`,
+        duration: 3200,
+        color: 'success',
+        position: 'top',
+      });
+      await loadArbitrage();
+      await loadFocus();
+    } catch {
+      presentToast({
+        message: 'Aggiornamento royal fallito (timeout o rete).',
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setRoyalUpdating(false);
+    }
   };
 
   return (
@@ -106,8 +147,37 @@ const RefiningPage: React.FC = () => {
         </IonRefresher>
 
         <div className="cp-container">
+          <div className="cp-search-row" style={{ marginTop: 4, marginBottom: 8, paddingLeft: 8, paddingRight: 8 }}>
+            <IonSegment
+              value={view}
+              onIonChange={(e) => setView((e.detail.value as ViewMode) ?? 'arbitrage')}
+              style={{ flex: 1, maxWidth: '100%' }}
+            >
+              <IonSegmentButton value="arbitrage">
+                <IonLabel>Arbitraggio</IonLabel>
+              </IonSegmentButton>
+              <IonSegmentButton value="focus">
+                <IonLabel>Focus .3</IonLabel>
+              </IonSegmentButton>
+            </IonSegment>
+            <button
+              type="button"
+              className="cp-filter-below-btn"
+              onClick={() => void runRoyalRecalc()}
+              disabled={royalUpdating}
+              title="Scarica prezzi royal + Brecilien + Caerleon, ricalcola flip royal e Focus (come menu impostazioni)"
+              aria-label="Ricalcola mercati royal per refining"
+            >
+              {royalUpdating ? (
+                <IonSpinner name="crescent" style={{ width: 20, height: 20 }} />
+              ) : (
+                <IonIcon icon={refreshOutline} />
+              )}
+            </button>
+          </div>
+
           <IonText>
-            <h2 className="cp-count" style={{ margin: '12px 16px 8px', fontSize: '1.05rem', fontWeight: 600 }}>
+            <h2 className="cp-count" style={{ margin: '4px 16px 8px', fontSize: '1.05rem', fontWeight: 600 }}>
               Refining (raw → città bonus)
             </h2>
             <p
@@ -118,7 +188,7 @@ const RefiningPage: React.FC = () => {
                 lineHeight: 1.45,
               }}
             >
-              {DISCLAIMER}
+              {view === 'arbitrage' ? DISCLAIMER : FOCUS_HINT}
             </p>
           </IonText>
 
@@ -154,26 +224,21 @@ const RefiningPage: React.FC = () => {
                 ))}
               </IonSelect>
             </IonItem>
-            <IonItem lines="none">
-              <IonButton expand="block" onClick={openFocusPlanModal}>
-                Piano refining .3 con focus
-              </IonButton>
-            </IonItem>
           </IonList>
 
-          {loading && (
+          {view === 'arbitrage' && loading && (
             <div className="cp-state-container">
               <IonSpinner name="crescent" />
             </div>
           )}
 
-          {error && !loading && (
+          {view === 'arbitrage' && error && !loading && (
             <div className="cp-state-container">
               <p>{error}</p>
             </div>
           )}
 
-          {!loading && !error && rows.length > 0 && (
+          {view === 'arbitrage' && !loading && !error && rows.length > 0 && (
             <IonList className="cp-list" style={{ paddingBottom: 24 }}>
               {rows.map((r) => (
                 <IonItem
@@ -226,104 +291,93 @@ const RefiningPage: React.FC = () => {
             </IonList>
           )}
 
-          {!loading && !error && rows.length === 0 && (
+          {view === 'arbitrage' && !loading && !error && rows.length === 0 && (
             <div className="cp-state-container">
               <p>Nessuna opportunità positiva con i filtri attuali.</p>
             </div>
           )}
-        </div>
-      </IonContent>
 
-      <IonModal isOpen={focusOpen} onDidDismiss={() => setFocusOpen(false)} className="cp-detail-modal">
-        <IonHeader>
-          <IonToolbar>
-            <IonTitle>Refining .3 + focus</IonTitle>
-            <IonButtons slot="end">
-              <IonButton onClick={() => setFocusOpen(false)} fill="clear">
-                Chiudi
-              </IonButton>
-            </IonButtons>
-          </IonToolbar>
-        </IonHeader>
-        <IonContent className="ion-padding" style={{ paddingBottom: 24 }}>
-          {focusLoading && (
+          {view === 'focus' && focusLoading && (
             <div className="cp-state-container">
               <IonSpinner name="crescent" />
             </div>
           )}
-          {!focusLoading && focusPlan && !focusPlan.found && (
-            <p style={{ fontSize: '0.9rem', lineHeight: 1.5 }}>{focusPlan.disclaimer ?? 'Nessun dato.'}</p>
-          )}
-          {!focusLoading && focusPlan?.found && (
-            <div style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>
-              <p style={{ fontWeight: 600, marginBottom: 8 }}>
-                {focusPlan.resourceLineLabel} T{focusPlan.tier} · .{focusPlan.enchantmentLevel}
-              </p>
-              <p style={{ margin: '6px 0' }}>
-                Refining a <strong>{focusPlan.refineBonusCity}</strong> · Raw da <strong>{focusPlan.buyRawCity}</strong> ·
-                Vendi output a <strong>{focusPlan.sellRefinedCity}</strong>
-              </p>
-              <p style={{ margin: '6px 0', opacity: 0.9 }}>
-                RRR stima senza focus {focusPlan.returnRateWithoutFocusPercent?.toFixed(1)}% · con focus{' '}
-                {focusPlan.returnRateWithFocusPercent?.toFixed(1)}%
-              </p>
-              <p style={{ margin: '6px 0' }}>
-                Batch: costo listino {formatPrice(focusPlan.listMaterialSilverPerBatch ?? 0)} → effettivo con focus ~
-                {formatPrice(focusPlan.effectiveMaterialSilverPerBatch ?? 0)} · ricavo BO ~
-                {formatPrice(focusPlan.revenueSilverPerBatch ?? 0)} · +{formatPrice(focusPlan.profitSilverPerBatch ?? 0)}
-              </p>
-              <p style={{ margin: '6px 0' }}>
-                Mount {focusPlan.mountCode} ({Math.round(focusPlan.mountMaxWeightKg ?? 0)} kg): ~
-                {focusPlan.fullBatchesPerTripApprox} batch/viaggio · profitto trip ~
-                {formatPrice(focusPlan.profitSilverFullTripsOnly ?? 0)}
-              </p>
-              {focusPlan.transportNote && (
-                <p style={{ color: 'var(--ion-color-warning)', margin: '8px 0' }}>{focusPlan.transportNote}</p>
-              )}
-              <p style={{ fontWeight: 600, marginTop: 14, marginBottom: 6 }}>
-                Materiali da comprare ({focusPlan.batchesListedForShopping} batch
-                {focusPlan.fullBatchesPerTripApprox ? ' = carico stimato' : ''})
-              </p>
-              <IonList className="cp-list">
-                {(focusPlan.materials ?? []).map((m) => (
-                  <IonItem key={m.itemId} lines="full">
-                    {m.iconUrl ? (
-                      <img
-                        src={m.iconUrl}
-                        alt=""
-                        width={36}
-                        height={36}
-                        slot="start"
-                        style={{ marginInlineEnd: 8 }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : null}
-                    <IonLabel>
-                      <h3 className="cp-item-name" style={{ fontSize: '0.85rem' }}>
-                        {m.quantity}× {m.itemId}
-                      </h3>
-                      <p style={{ fontSize: '0.78rem', opacity: 0.88 }}>
-                        Compra a <strong>{m.buyCity}</strong> @ {formatPrice(m.unitPriceSilver)} →{' '}
-                        {formatPrice(m.lineTotalSilver)} · ~{m.totalWeightKg.toFixed(0)} kg
-                      </p>
-                    </IonLabel>
-                  </IonItem>
-                ))}
-              </IonList>
-              <p style={{ marginTop: 12, fontWeight: 600 }}>
-                Totale costo (focus) {formatPrice(focusPlan.totalEffectiveMaterialSilverListed ?? 0)} · ricavo{' '}
-                {formatPrice(focusPlan.totalRevenueSilverListed ?? 0)} ·{' '}
-                <span className="cp-profit positive">+{formatPrice(focusPlan.profitSilverListed ?? 0)}</span>
-              </p>
-              {focusPlan.disclaimer && (
-                <p style={{ marginTop: 12, fontSize: '0.78rem', opacity: 0.85 }}>{focusPlan.disclaimer}</p>
-              )}
+
+          {view === 'focus' && focusError && !focusLoading && (
+            <div className="cp-state-container">
+              <p>{focusError}</p>
             </div>
           )}
-        </IonContent>
-      </IonModal>
+
+          {view === 'focus' && !focusLoading && !focusError && focusRows.length > 0 && (
+            <IonList className="cp-list" style={{ paddingBottom: 24 }}>
+              {focusRows.map((p, idx) => (
+                <IonItem key={`${p.rawItemId}-${p.buyRawCity}-${p.sellRefinedCity}-${idx}`} lines="full" className="cp-item">
+                  {p.outputRefinedItemId && (
+                    <img
+                      src={`https://render.albiononline.com/v1/item/${p.outputRefinedItemId.replace(/_LEVEL\d+/, '')}.png`}
+                      alt=""
+                      width={40}
+                      height={40}
+                      style={{ marginRight: 12, borderRadius: 6 }}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
+                  <IonLabel>
+                    <h3 className="cp-item-name">
+                      {p.resourceLineLabel} T{p.tier} · .{p.enchantmentLevel}
+                    </h3>
+                    <p style={{ fontSize: '0.78rem', marginTop: 4, opacity: 0.9 }}>
+                      Refining <strong>{p.refineBonusCity}</strong> · Raw <strong>{p.buyRawCity}</strong> · Vendi{' '}
+                      <strong>{p.sellRefinedCity}</strong>
+                    </p>
+                    <p style={{ fontSize: '0.72rem', marginTop: 4, opacity: 0.82 }}>
+                      Acquista: <strong>{p.materials?.[0]?.quantity ?? '—'}</strong>× raw @ {p.buyRawCity} ·{' '}
+                      <strong>{p.materials?.[1]?.quantity ?? '—'}</strong>× raffinato (t−1) .3 @ {p.refineBonusCity}
+                    </p>
+                    {p.transportNote && (
+                      <p style={{ fontSize: '0.7rem', color: 'var(--ion-color-warning)', marginTop: 4 }}>
+                        {p.transportNote}
+                      </p>
+                    )}
+                    <p style={{ fontSize: '0.7rem', marginTop: 6, opacity: 0.8 }}>
+                      Costo focus ~{formatPrice(p.totalEffectiveMaterialSilverListed ?? 0)} · ricavo ~
+                      {formatPrice(p.totalRevenueSilverListed ?? 0)}
+                    </p>
+                  </IonLabel>
+                  <div slot="end" className="cp-profit-col" style={{ textAlign: 'right' }}>
+                    <span className="cp-profit positive" style={{ display: 'block' }}>
+                      +{formatPrice(p.profitSilverFullTripsOnly ?? 0)}
+                    </span>
+                    <span className="cp-bm-price" style={{ display: 'block', marginTop: 4 }}>
+                      trip
+                    </span>
+                    <span className="cp-bm-price" style={{ display: 'block', marginTop: 2, fontSize: '0.7rem' }}>
+                      +{formatPrice(p.profitSilverPerBatch ?? 0)}/batch
+                    </span>
+                  </div>
+                </IonItem>
+              ))}
+            </IonList>
+          )}
+
+          {view === 'focus' && !focusLoading && !focusError && focusRows.length > 0 && focusRows[0]?.disclaimer && (
+            <p className="cp-count" style={{ margin: '0 16px 24px', fontSize: '0.72rem', opacity: 0.78, lineHeight: 1.45 }}>
+              {focusRows[0].disclaimer}
+            </p>
+          )}
+
+          {view === 'focus' && !focusLoading && !focusError && focusRows.length === 0 && (
+            <div className="cp-state-container">
+              <p>Nessun piano focus .3 profittevole con i filtri attuali. Aggiorna i mercati royal (icona refresh).</p>
+            </div>
+          )}
+
+        </div>
+      </IonContent>
     </IonPage>
   );
 };

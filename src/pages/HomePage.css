@@ -180,14 +180,6 @@
   touch-action: pan-x;
 }
 
-/* Evita che le strisce “ultimo blocco” debordino sui bordi laterali mobile. */
-.home-enchant-block .home-scroll {
-  margin-left: -16px;
-  margin-right: -16px;
-  padding-left: 16px;
-  padding-right: 16px;
-}
-
 .home-scroll::-webkit-scrollbar {
   display: none;
 }
@@ -199,11 +191,14 @@
   white-space: nowrap;
 }
 
-/* Item tile */
+/* Item tile (box-sizing + flex-basis: stessa larghezza su WebView Capacitor e browser) */
 .home-tile {
-  flex-shrink: 0;
+  box-sizing: border-box;
+  flex: 0 0 88px;
   scroll-snap-align: start;
   width: 88px;
+  min-width: 88px;
+  max-width: 88px;
   padding: 12px 8px 10px;
   border-radius: var(--home-radius);
   background: var(--home-surface);
@@ -219,6 +214,7 @@
 }
 
 .home-tile-icon {
+  flex-shrink: 0;
   width: 48px;
   height: 48px;
   object-fit: contain;
@@ -290,18 +286,6 @@
   margin-top: 8px;
   font-size: 0.8125rem;
   opacity: 0.85;
-}
-
-.home-enchant-block {
-  margin-top: 8px;
-  padding-top: 4px;
-  border-top: 1px solid var(--home-faint);
-  /* Allineato alle altre strip: stessa “cornice” laterale su mobile. */
-  padding-left: 16px;
-  padding-right: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
 }
 
 .home-section--enchant-row {

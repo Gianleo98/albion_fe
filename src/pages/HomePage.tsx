@@ -314,134 +314,132 @@ const HomePage: React.FC = () => {
             </div>
           )}
 
-          {/* Material strips */}
-          {!loading && !error && homePrices.length > 0 && (
+          {/* Material strips + Rune/Soul/Relic nello stesso contenitore (layout identico browser / app) */}
+          {!loading && !error && (homePrices.length > 0 || enchantStrip.length > 0) && (
             <div className="home-strips">
-              {MATERIAL_ORDER.map((type) => {
-                const allItems = grouped[type];
-                if (!allItems || allItems.length === 0) return null;
-                const isFiltered = !!filterBelow[type];
-                const items = isFiltered
-                  ? allItems.filter((i) => i.sellPriceMin > 0 && i.avgPrice7d > 0 && i.sellPriceMin < i.avgPrice7d)
-                  : allItems;
-                return (
-                  <section key={type} className="home-section">
-                    <div className="home-section-head">
-                      <span className="home-section-name">{MATERIAL_LABELS[type] ?? type}</span>
-                      <button
-                        type="button"
-                        className={`home-filter ${isFiltered ? 'home-filter--on' : ''}`}
-                        onClick={() => setFilterBelow((prev) => ({ ...prev, [type]: !prev[type] }))}
-                        title="Solo sotto media 7g"
-                        aria-label="Filtra sotto media"
+              {homePrices.length > 0 &&
+                MATERIAL_ORDER.map((type) => {
+                  const allItems = grouped[type];
+                  if (!allItems || allItems.length === 0) return null;
+                  const isFiltered = !!filterBelow[type];
+                  const items = isFiltered
+                    ? allItems.filter((i) => i.sellPriceMin > 0 && i.avgPrice7d > 0 && i.sellPriceMin < i.avgPrice7d)
+                    : allItems;
+                  return (
+                    <section key={type} className="home-section">
+                      <div className="home-section-head">
+                        <span className="home-section-name">{MATERIAL_LABELS[type] ?? type}</span>
+                        <button
+                          type="button"
+                          className={`home-filter ${isFiltered ? 'home-filter--on' : ''}`}
+                          onClick={() => setFilterBelow((prev) => ({ ...prev, [type]: !prev[type] }))}
+                          title="Solo sotto media 7g"
+                          aria-label="Filtra sotto media"
+                        >
+                          <IonIcon icon={isFiltered ? funnel : funnelOutline} />
+                        </button>
+                      </div>
+                      <div
+                        className="home-scroll"
+                        onPointerDown={drag.onPointerDown}
+                        onPointerMove={drag.onPointerMove}
+                        onPointerUp={drag.onPointerUp}
+                        onPointerCancel={drag.onPointerUp}
                       >
-                        <IonIcon icon={isFiltered ? funnel : funnelOutline} />
-                      </button>
-                    </div>
-                    <div
-                      className="home-scroll"
-                      onPointerDown={drag.onPointerDown}
-                      onPointerMove={drag.onPointerMove}
-                      onPointerUp={drag.onPointerUp}
-                      onPointerCancel={drag.onPointerUp}
-                    >
-                      {items.length === 0 ? (
-                        <span className="home-empty-hint">Nessun item sotto la media</span>
-                      ) : items.map((item) => (
-                        <div key={item.itemId} className="home-tile">
-                          {item.iconUrl && (
-                            <img
-                              src={item.iconUrl}
-                              alt=""
-                              className="home-tile-icon"
-                              loading="lazy"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                          )}
-                          <span className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, item.avgPrice7d)}`}>
-                            {formatPrice(item.sellPriceMin)}
-                          </span>
-                          <span className="home-tile-7g">
-                            <IonIcon icon={timeOutline} aria-hidden />
-                            {item.avgPrice7d > 0 ? formatPrice(item.avgPrice7d) : '—'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Rune / Soul / Relic (ultima sezione, come le altre strip + filtro) */}
-          {!loading && !error && enchantStrip.length > 0 && (
-            <div className="home-enchant-block">
-              {ENCHANT_MATERIAL_ORDER.map((kind) => {
-                const allItems = groupedEnchant[kind];
-                if (!allItems || allItems.length === 0) return null;
-                const rowAvg = enchantRowAvg(allItems);
-                const isFiltered = !!filterBelow[kind];
-                const items = isFiltered
-                  ? allItems.filter(
-                      (i) => i.sellPriceMin > 0 && rowAvg > 0 && i.sellPriceMin < rowAvg,
-                    )
-                  : allItems;
-                return (
-                  <section key={kind} className="home-section home-section--enchant-row">
-                    <div className="home-section-head">
-                      <span className="home-section-name">
-                        {ENCHANT_MATERIAL_LABELS[kind] ?? kind}
-                      </span>
-                      <button
-                        type="button"
-                        className={`home-filter ${isFiltered ? 'home-filter--on' : ''}`}
-                        onClick={() => setFilterBelow((prev) => ({ ...prev, [kind]: !prev[kind] }))}
-                        title="Solo sotto la media di questa riga (listino)"
-                        aria-label="Filtra sotto media riga"
+                        {items.length === 0 ? (
+                          <span className="home-empty-hint">Nessun item sotto la media</span>
+                        ) : (
+                          items.map((item) => (
+                            <div key={item.itemId} className="home-tile">
+                              {item.iconUrl && (
+                                <img
+                                  src={item.iconUrl}
+                                  alt=""
+                                  className="home-tile-icon"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                              <span className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, item.avgPrice7d)}`}>
+                                {formatPrice(item.sellPriceMin)}
+                              </span>
+                              <span className="home-tile-7g">
+                                <IonIcon icon={timeOutline} aria-hidden />
+                                {item.avgPrice7d > 0 ? formatPrice(item.avgPrice7d) : '—'}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+              {enchantStrip.length > 0 &&
+                ENCHANT_MATERIAL_ORDER.map((kind) => {
+                  const allItems = groupedEnchant[kind];
+                  if (!allItems || allItems.length === 0) return null;
+                  const rowAvg = enchantRowAvg(allItems);
+                  const isFiltered = !!filterBelow[kind];
+                  const items = isFiltered
+                    ? allItems.filter((i) => i.sellPriceMin > 0 && rowAvg > 0 && i.sellPriceMin < rowAvg)
+                    : allItems;
+                  return (
+                    <section key={kind} className="home-section home-section--enchant-row">
+                      <div className="home-section-head">
+                        <span className="home-section-name">
+                          {ENCHANT_MATERIAL_LABELS[kind] ?? kind}
+                        </span>
+                        <button
+                          type="button"
+                          className={`home-filter ${isFiltered ? 'home-filter--on' : ''}`}
+                          onClick={() => setFilterBelow((prev) => ({ ...prev, [kind]: !prev[kind] }))}
+                          title="Solo sotto la media di questa riga (listino)"
+                          aria-label="Filtra sotto media riga"
+                        >
+                          <IonIcon icon={isFiltered ? funnel : funnelOutline} />
+                        </button>
+                      </div>
+                      <div
+                        className="home-scroll"
+                        onPointerDown={drag.onPointerDown}
+                        onPointerMove={drag.onPointerMove}
+                        onPointerUp={drag.onPointerUp}
+                        onPointerCancel={drag.onPointerUp}
                       >
-                        <IonIcon icon={isFiltered ? funnel : funnelOutline} />
-                      </button>
-                    </div>
-                    <div
-                      className="home-scroll"
-                      onPointerDown={drag.onPointerDown}
-                      onPointerMove={drag.onPointerMove}
-                      onPointerUp={drag.onPointerUp}
-                      onPointerCancel={drag.onPointerUp}
-                    >
-                      {items.length === 0 ? (
-                        <span className="home-empty-hint">Nessun item sotto la media</span>
-                      ) : (
-                        items.map((item) => (
-                          <div key={item.itemId} className="home-tile" title={item.itemId}>
-                            {item.iconUrl && (
-                              <img
-                                src={item.iconUrl}
-                                alt=""
-                                className="home-tile-icon"
-                                loading="lazy"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            )}
-                            <span
-                              className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, rowAvg)}`}
-                            >
-                              {formatPrice(item.sellPriceMin)}
-                            </span>
-                            <span className="home-tile-7g">
-                              <IonIcon icon={timeOutline} aria-hidden />
-                              {rowAvg > 0 ? formatPrice(Math.round(rowAvg)) : '—'}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </section>
-                );
-              })}
+                        {items.length === 0 ? (
+                          <span className="home-empty-hint">Nessun item sotto la media</span>
+                        ) : (
+                          items.map((item) => (
+                            <div key={item.itemId} className="home-tile" title={item.itemId}>
+                              {item.iconUrl && (
+                                <img
+                                  src={item.iconUrl}
+                                  alt=""
+                                  className="home-tile-icon"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                              <span
+                                className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, rowAvg)}`}
+                              >
+                                {formatPrice(item.sellPriceMin)}
+                              </span>
+                              <span className="home-tile-7g">
+                                <IonIcon icon={timeOutline} aria-hidden />
+                                {rowAvg > 0 ? formatPrice(Math.round(rowAvg)) : '—'}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
             </div>
           )}
 
