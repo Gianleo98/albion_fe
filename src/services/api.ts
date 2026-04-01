@@ -22,6 +22,8 @@ import type {
   EnchantmentMaterialStripResponse,
   SavedEnchantingItemResponse,
   EnchantingSavedKey,
+  KennelBabyStripItemResponse,
+  KennelProfitEstimateResponse,
 } from '../types';
 
 const PRIMARY_BASE_URL = 'http://janraion.ddns.net:1997';
@@ -68,6 +70,16 @@ export const getAppInfo = async (): Promise<AppInfo> => {
 
 export const getMaterialPrices = async (): Promise<MaterialPriceResponse[]> => {
   const { data } = await api.get<MaterialPriceResponse[]>('/api/materials');
+  return data;
+};
+
+export const getIslandKennelBabiesStrip = async (): Promise<KennelBabyStripItemResponse[]> => {
+  const { data } = await api.get<KennelBabyStripItemResponse[]>('/api/island/kennel/babies-strip');
+  return data;
+};
+
+export const getIslandKennelProfitEstimates = async (): Promise<KennelProfitEstimateResponse[]> => {
+  const { data } = await api.get<KennelProfitEstimateResponse[]>('/api/island/kennel/profit-estimates');
   return data;
 };
 

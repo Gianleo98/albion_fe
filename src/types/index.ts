@@ -233,6 +233,38 @@ export interface RoyalContinentFlipResponse {
   mammothMaxWeightKgApplied?: number | null;
 }
 
+// --- Isola / Kennel (cuccioli selvaggi, carne) ---
+
+export interface KennelBabyStripItemResponse {
+  itemId: string;
+  labelIt: string;
+  tier: number;
+  sellPriceMin: number;
+  iconUrl: string | null;
+  updatedAt: string;
+}
+
+export interface KennelProfitEstimateResponse {
+  babyItemId: string;
+  labelIt: string;
+  tier: number;
+  growHoursNoPremium: number;
+  growHoursPremium: number;
+  babyBuyCost: number;
+  bestMeatItemId: string;
+  bestMeatTier: number;
+  meatUnitsNeeded: number;
+  meatUnitPrice: number;
+  totalMeatCost: number;
+  curedLeatherItemId: string;
+  saddleCuredLeatherQty: number;
+  curedLeatherUnitPrice: number;
+  leatherRevenueOnly: number;
+  netSilverWorstCase: number;
+  rrrPercentOnLeatherOnly: number;
+  dataComplete: boolean;
+}
+
 // --- Enchanting (verso .3, Lymhurst) ---
 
 export interface RoyalCityEnchantBuyProfit {
