@@ -233,36 +233,71 @@ export interface RoyalContinentFlipResponse {
   mammothMaxWeightKgApplied?: number | null;
 }
 
-// --- Isola / Kennel (cuccioli selvaggi, carne) ---
+// --- Refining (raw → città bonus, royal senza Caerleon) ---
 
-export interface KennelBabyStripItemResponse {
-  itemId: string;
-  labelIt: string;
+export type RefiningMountCode = 'MAMMOTH' | 'WINTER_BEAR_T8' | 'GRIZZLY' | 'OX_T8';
+
+export interface RefiningOpportunityResponse {
+  resourceLine: string;
+  resourceLineLabel: string;
   tier: number;
-  sellPriceMin: number;
-  iconUrl: string | null;
-  updatedAt: string;
+  rawItemId: string;
+  lowerRefinedItemId: string;
+  refinedItemId: string;
+  refineBonusCity: string;
+  buyRawCity: string;
+  sellRefinedCity: string;
+  batchProfitSilver: number;
+  tripProfitSilver: number;
+  mountCode: string;
+  mountMaxWeightKg: number;
+  estimatedRawKgPerBatch: number;
+  fullBatchesPerTripApprox: number;
+  taxPercentApplied: number;
+  refinedIconUrl: string;
 }
 
-export interface KennelProfitEstimateResponse {
-  babyItemId: string;
-  labelIt: string;
-  tier: number;
-  growHoursNoPremium: number;
-  growHoursPremium: number;
-  babyBuyCost: number;
-  bestMeatItemId: string;
-  bestMeatTier: number;
-  meatUnitsNeeded: number;
-  meatUnitPrice: number;
-  totalMeatCost: number;
-  curedLeatherItemId: string;
-  saddleCuredLeatherQty: number;
-  curedLeatherUnitPrice: number;
-  leatherRevenueOnly: number;
-  netSilverWorstCase: number;
-  rrrPercentOnLeatherOnly: number;
-  dataComplete: boolean;
+export interface RefiningFocusMaterialDto {
+  itemId: string;
+  iconUrl: string;
+  quantity: number;
+  buyCity: string;
+  unitPriceSilver: number;
+  lineTotalSilver: number;
+  totalWeightKg: number;
+}
+
+export interface RefiningFocusPlanResponse {
+  found: boolean;
+  enchantmentLevel: number;
+  resourceLine?: string;
+  resourceLineLabel?: string;
+  tier?: number;
+  rawItemId?: string;
+  lowerRefinedItemId?: string;
+  outputRefinedItemId?: string;
+  refineBonusCity?: string;
+  buyRawCity?: string;
+  sellRefinedCity?: string;
+  returnRateWithoutFocusPercent?: number;
+  returnRateWithFocusPercent?: number;
+  listMaterialSilverPerBatch?: number;
+  effectiveMaterialSilverPerBatch?: number;
+  revenueSilverPerBatch?: number;
+  profitSilverPerBatch?: number;
+  fullBatchesPerTripApprox?: number;
+  mountCode?: string;
+  mountMaxWeightKg?: number;
+  rawKgPerBatch?: number;
+  batchesListedForShopping?: number;
+  totalEffectiveMaterialSilverListed?: number;
+  totalRevenueSilverListed?: number;
+  profitSilverListed?: number;
+  profitSilverFullTripsOnly?: number;
+  transportNote?: string | null;
+  taxPercentApplied?: number;
+  materials?: RefiningFocusMaterialDto[];
+  disclaimer?: string;
 }
 
 // --- Enchanting (verso .3, Lymhurst) ---

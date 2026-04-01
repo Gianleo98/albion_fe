@@ -10,14 +10,14 @@ import {
   setupIonicReact,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { homeOutline, storefrontOutline, flashOutline, swapHorizontalOutline, sparklesOutline, leafOutline } from 'ionicons/icons';
+import { homeOutline, storefrontOutline, flashOutline, swapHorizontalOutline, sparklesOutline, cubeOutline } from 'ionicons/icons';
 
 import HomePage from './pages/HomePage';
 import BlackMarketPage from './pages/BlackMarketPage';
 import FocusPage from './pages/FocusPage';
 import FlipPage from './pages/FlipPage';
 import EnchantingPage from './pages/EnchantingPage';
-import IslandPage from './pages/IslandPage';
+import RefiningPage from './pages/RefiningPage';
 import { NativeFlipAlerts } from './components/NativeFlipAlerts';
 
 /* Core CSS required for Ionic components to work properly */
@@ -66,8 +66,8 @@ const App: React.FC = () => (
           <Route exact path="/enchanting">
             <EnchantingPage />
           </Route>
-          <Route exact path="/island">
-            <IslandPage />
+          <Route exact path="/refining">
+            <RefiningPage />
           </Route>
           <Route exact path="/">
             <Redirect to="/home" />
@@ -95,9 +95,9 @@ const App: React.FC = () => (
             <IonIcon icon={sparklesOutline} />
             <IonLabel>Enchanting</IonLabel>
           </IonTabButton>
-          <IonTabButton tab="island" href="/island">
-            <IonIcon icon={leafOutline} />
-            <IonLabel>Isola</IonLabel>
+          <IonTabButton tab="refining" href="/refining">
+            <IonIcon icon={cubeOutline} />
+            <IonLabel>Refining</IonLabel>
           </IonTabButton>
         </IonTabBar>
       </IonTabs>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   IonButton,
   IonCard,
@@ -14,7 +14,7 @@ import {
   useIonViewWillEnter,
 } from '@ionic/react';
 import { funnelOutline, funnel, timeOutline } from 'ionicons/icons';
-import { getMaterialPrices, getEnchantmentMaterialsStrip, getIslandKennelBabiesStrip } from '../services/api';
+import { getMaterialPrices, getEnchantmentMaterialsStrip } from '../services/api';
 import {
   DAILY_REMINDER_HOUR,
   DAILY_REMINDER_MINUTE,
@@ -24,7 +24,7 @@ import {
   syncAlbionDailyReminder,
 } from '../services/albionNotifications';
 import { refreshFlipHighProfitAlerts } from '../services/flipHighProfitNotify';
-import type { EnchantmentMaterialStripResponse, KennelBabyStripItemResponse, MaterialPriceResponse } from '../types';
+import type { EnchantmentMaterialStripResponse, MaterialPriceResponse } from '../types';
 import AppHeader from '../components/AppHeader';
 import './HomePage.css';
 
@@ -95,13 +95,6 @@ const enchantRowAvg = (items: EnchantmentMaterialStripResponse[]): number => {
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 };
 
-const medianSell = (items: { sellPriceMin: number }[]): number => {
-  const v = items.map((i) => i.sellPriceMin).filter((x) => x > 0).sort((a, b) => a - b);
-  if (v.length === 0) return 0;
-  const m = Math.floor(v.length / 2);
-  return v.length % 2 === 1 ? v[m]! : (v[m - 1]! + v[m]!) / 2;
-};
-
 const useDragScroll = () => {
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -134,7 +127,6 @@ const HomePage: React.FC = () => {
   const [presentToast] = useIonToast();
   const [prices, setPrices] = useState<MaterialPriceResponse[]>([]);
   const [enchantStrip, setEnchantStrip] = useState<EnchantmentMaterialStripResponse[]>([]);
-  const [kennelBabies, setKennelBabies] = useState<KennelBabyStripItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterBelow, setFilterBelow] = useState<Record<string, boolean>>({});
@@ -152,12 +144,6 @@ const HomePage: React.FC = () => {
         setEnchantStrip(rows);
       } catch {
         setEnchantStrip([]);
-      }
-      try {
-        const kb = await getIslandKennelBabiesStrip();
-        setKennelBabies(kb);
-      } catch {
-        setKennelBabies([]);
       }
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -244,7 +230,6 @@ const HomePage: React.FC = () => {
   const homePrices = prices.filter((p) => p.materialType !== 'HEART');
   const grouped = groupByMaterial(homePrices);
   const groupedEnchant = groupByEnchantKind(enchantStrip);
-  const kennelMedian = useMemo(() => medianSell(kennelBabies), [kennelBabies]);
   const lastUpdate = homePrices.length > 0 ? homePrices[0].updatedAt : null;
 
   return (
@@ -303,8 +288,8 @@ const HomePage: React.FC = () => {
             />
             <h1 className="home-hero-title">Lymhurst</h1>
             <p className="home-hero-tag">
-              Materiali e ingredienti base (cibo/pozioni: chopped fish, seaweed, animal remains) · media 7 giorni · più
-              cuccioli kennel selvaggi (listino Lymhurst, tab Isola per stime carne/pelle)
+              Materiali e ingredienti base (cibo/pozioni: chopped fish, seaweed, animal remains) · media 7 giorni · tab
+              Refining per stime raw → città bonus
             </p>
             <p className="home-hero-foot">Albus · Janraion</p>
           </header>
@@ -460,46 +445,6 @@ const HomePage: React.FC = () => {
             </div>
           )}
 
-          {!loading && !error && kennelBabies.length > 0 && (
-            <div className="home-enchant-block">
-              <section className="home-section home-section--enchant-row">
-                <div className="home-section-head">
-                  <span className="home-section-name">Cuccioli kennel (selvaggi, carne)</span>
-                </div>
-                <div
-                  className="home-scroll"
-                  onPointerDown={drag.onPointerDown}
-                  onPointerMove={drag.onPointerMove}
-                  onPointerUp={drag.onPointerUp}
-                  onPointerCancel={drag.onPointerUp}
-                >
-                  {kennelBabies.map((item) => (
-                    <div key={item.itemId} className="home-tile" title={item.itemId}>
-                      {item.iconUrl && (
-                        <img
-                          src={item.iconUrl}
-                          alt=""
-                          className="home-tile-icon"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <span
-                        className={`home-tile-sell ${sellPriceClass(item.sellPriceMin, kennelMedian)}`}
-                      >
-                        {formatPrice(item.sellPriceMin)}
-                      </span>
-                      <span className="home-tile-7g">
-                        T{item.tier}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-          )}
         </div>
       </IonContent>
     </IonPage>

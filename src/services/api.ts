@@ -22,8 +22,9 @@ import type {
   EnchantmentMaterialStripResponse,
   SavedEnchantingItemResponse,
   EnchantingSavedKey,
-  KennelBabyStripItemResponse,
-  KennelProfitEstimateResponse,
+  RefiningFocusPlanResponse,
+  RefiningMountCode,
+  RefiningOpportunityResponse,
 } from '../types';
 
 const PRIMARY_BASE_URL = 'http://janraion.ddns.net:1997';
@@ -73,13 +74,23 @@ export const getMaterialPrices = async (): Promise<MaterialPriceResponse[]> => {
   return data;
 };
 
-export const getIslandKennelBabiesStrip = async (): Promise<KennelBabyStripItemResponse[]> => {
-  const { data } = await api.get<KennelBabyStripItemResponse[]>('/api/island/kennel/babies-strip');
+export const getRefiningOpportunities = async (
+  lymhurstAnchor: boolean,
+  mount: RefiningMountCode
+): Promise<RefiningOpportunityResponse[]> => {
+  const { data } = await api.get<RefiningOpportunityResponse[]>('/api/refining/opportunities', {
+    params: { lymhurstAnchor, mount },
+  });
   return data;
 };
 
-export const getIslandKennelProfitEstimates = async (): Promise<KennelProfitEstimateResponse[]> => {
-  const { data } = await api.get<KennelProfitEstimateResponse[]>('/api/island/kennel/profit-estimates');
+export const getRefiningFocusPlan = async (
+  lymhurstAnchor: boolean,
+  mount: RefiningMountCode
+): Promise<RefiningFocusPlanResponse> => {
+  const { data } = await api.get<RefiningFocusPlanResponse>('/api/refining/focus-plan', {
+    params: { lymhurstAnchor, mount },
+  });
   return data;
 };
 
