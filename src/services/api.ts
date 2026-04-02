@@ -22,6 +22,7 @@ import type {
   EnchantmentMaterialStripResponse,
   SavedEnchantingItemResponse,
   EnchantingSavedKey,
+  EnchantingMasterpieceCategoryResponse,
   RefiningFocusPlanResponse,
   RefiningOpportunityResponse,
 } from '../types';
@@ -401,6 +402,11 @@ export const getEnchantmentMaterialsStrip = async (): Promise<EnchantmentMateria
   const { data } = await api.get<EnchantmentMaterialStripResponse[]>(
     '/api/enchanting-profit/enchantment-materials-strip',
   );
+  return data;
+};
+
+export const getEnchantingMasterpieceCategories = async (): Promise<EnchantingMasterpieceCategoryResponse[]> => {
+  const { data } = await api.get<EnchantingMasterpieceCategoryResponse[]>('/api/enchanting-profit/masterpiece/categories');
   return data;
 };
 

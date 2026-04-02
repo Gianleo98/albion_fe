@@ -75,6 +75,10 @@ type DetailState =
 
 function ArbitrageDetailBody({ r, onClose }: { r: RefiningOpportunityResponse; onClose: () => void }) {
   const q = arbitrageBatchQty(r);
+  const listCost =
+    r.listMaterialSilverPerBatch ?? q.raw * (r.rawUnitBuySilver ?? 0) + q.lower * (r.lowerRefinedUnitBuySilver ?? 0);
+  const effectiveCost = r.effectiveMaterialSilverPerBatch ?? listCost;
+  const rrrNoFocus = r.returnRateWithoutFocusPercent;
   return (
     <div className="refining-detail-body">
       <div className="refining-detail-hero">
@@ -140,6 +144,15 @@ function ArbitrageDetailBody({ r, onClose }: { r: RefiningOpportunityResponse; o
           <li>
             <strong>Output</strong>: {q.out} pz a {perPz(r.outputUnitSellSilver ?? 0)} buy order · tassa{' '}
             {r.taxPercentApplied}%
+          </li>
+          <li>
+            <strong>Costo base</strong>: {formatPrice(listCost)}
+            {rrrNoFocus != null ? (
+              <>
+                {' '}
+                · RRR senza focus {rrrNoFocus}% → <strong>{formatPrice(effectiveCost)}</strong>
+              </>
+            ) : null}
           </li>
         </ul>
       </div>

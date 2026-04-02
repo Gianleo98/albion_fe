@@ -55,10 +55,12 @@ import {
   getSavedEnchantingItemsWithCurrent,
   getSavedEnchantingItemDetail,
   patchSavedEnchantingTracking,
+  getEnchantingMasterpieceCategories,
 } from '../services/api';
 import type {
   AvailabilityLevelCode,
   EnchantingProfitResponse,
+  EnchantingMasterpieceCategoryResponse,
   RoyalCityEnchantBuyProfit,
   SavedEnchantingItemResponse,
   SortOption,
@@ -615,6 +617,10 @@ const EnchantingPage: React.FC = () => {
   const [trSell, setTrSell] = useState<AvailabilityLevelCode>('NONE');
   const [trStock, setTrStock] = useState<AvailabilityLevelCode>('NONE');
   const [trackSaving, setTrackSaving] = useState(false);
+  const [masterpieceOnly, setMasterpieceOnly] = useState(false);
+  const [masterpieceLoading, setMasterpieceLoading] = useState(false);
+  const [masterpieceError, setMasterpieceError] = useState<string | null>(null);
+  const [masterpieceCategories, setMasterpieceCategories] = useState<EnchantingMasterpieceCategoryResponse[]>([]);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountRef = useRef(false);
   const skipPathViewEffectRef = useRef(true);
@@ -865,6 +871,26 @@ const EnchantingPage: React.FC = () => {
     void fetchItems(0, true, sortBy, next);
   };
 
+  const fetchMasterpieceCategories = useCallback(async () => {
+    setMasterpieceLoading(true);
+    setMasterpieceError(null);
+    try {
+      const data = await getEnchantingMasterpieceCategories();
+      setMasterpieceCategories(data);
+    } catch {
+      setMasterpieceCategories([]);
+      setMasterpieceError('Impossibile caricare la lista Masterpiece per categoria.');
+    } finally {
+      setMasterpieceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (listMode !== 'all' || !masterpieceOnly) return;
+    if (masterpieceCategories.length > 0) return;
+    void fetchMasterpieceCategories();
+  }, [listMode, masterpieceOnly, masterpieceCategories.length, fetchMasterpieceCategories]);
+
   return (
     <IonPage>
       <AppHeader
@@ -917,6 +943,74 @@ const EnchantingPage: React.FC = () => {
 
           {listMode === 'all' && (
             <>
+              <IonItem
+                lines="none"
+                style={{ '--padding-start': '16px', '--inner-padding-end': '16px' } as { [key: string]: string }}
+              >
+                <IonLabel>Mostra lista Masterpiece per categoria (.1/.2/.3)</IonLabel>
+                <IonToggle
+                  checked={masterpieceOnly}
+                  onIonChange={(e) => setMasterpieceOnly(e.detail.checked)}
+                />
+              </IonItem>
+
+              {masterpieceOnly && (
+                <p className="cp-count" style={{ padding: '0 16px', fontSize: '0.85rem', opacity: 0.85 }}>
+                  Solo item <strong>MASTERPIECE</strong> (qualita massima), prezzi royal continent
+                  (Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford), esclusi Caerleon e Brecilien.
+                </p>
+              )}
+
+              {masterpieceOnly && masterpieceLoading && (
+                <div className="cp-state-container">
+                  <IonSpinner name="crescent" />
+                </div>
+              )}
+
+              {masterpieceOnly && masterpieceError && !masterpieceLoading && (
+                <div className="cp-state-container">
+                  <p>{masterpieceError}</p>
+                </div>
+              )}
+
+              {masterpieceOnly && !masterpieceLoading && !masterpieceError && masterpieceCategories.length > 0 && (
+                <IonList className="cp-list">
+                  {masterpieceCategories.map((c) => (
+                    <IonItem key={c.category} className="cp-item">
+                      <IonLabel>
+                        <h3 className="cp-item-name">{c.category}</h3>
+                        <div className="cp-meta">
+                          <span className="cp-rrr">
+                            .1: <strong>{formatProfitMaybe(c.bestProfit1)}</strong>{' '}
+                            {c.bestItemId1 ? <>({c.bestItemId1})</> : null}
+                          </span>
+                        </div>
+                        <div className="cp-meta">
+                          <span className="cp-rrr">
+                            .2: <strong>{formatProfitMaybe(c.bestProfit2)}</strong>{' '}
+                            {c.bestItemId2 ? <>({c.bestItemId2})</> : null}
+                          </span>
+                        </div>
+                        <div className="cp-meta">
+                          <span className="cp-rrr">
+                            .3: <strong>{formatProfitMaybe(c.bestProfit3)}</strong>{' '}
+                            {c.bestItemId3 ? <>({c.bestItemId3})</> : null}
+                          </span>
+                        </div>
+                      </IonLabel>
+                    </IonItem>
+                  ))}
+                </IonList>
+              )}
+
+              {masterpieceOnly && !masterpieceLoading && !masterpieceError && masterpieceCategories.length === 0 && (
+                <div className="cp-state-container">
+                  <p>Nessun dato Masterpiece disponibile.</p>
+                </div>
+              )}
+
+              {!masterpieceOnly && (
+                <>
               <div className="cp-search-row">
                 <IonItem className="cp-search-item" lines="none">
                   <IonIcon icon={searchOutline} slot="start" />
@@ -1141,6 +1235,8 @@ const EnchantingPage: React.FC = () => {
                   <IonInfiniteScroll disabled={!hasMore} onIonInfinite={loadMore}>
                     <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Caricamento..." />
                   </IonInfiniteScroll>
+                </>
+              )}
                 </>
               )}
             </>

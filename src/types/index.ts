@@ -246,6 +246,12 @@ export interface RefiningOpportunityResponse {
   buyRawCity: string;
   sellRefinedCity: string;
   batchProfitSilver: number;
+  /** Costo materiali a listino pieno (prima del RRR). */
+  listMaterialSilverPerBatch?: number;
+  /** Costo effettivo senza focus (dopo RRR stazione bonus). */
+  effectiveMaterialSilverPerBatch?: number;
+  /** RRR% senza focus (stazione bonus refining). */
+  returnRateWithoutFocusPercent?: number;
   /** Se assenti (backend vecchio), il FE usa la ladder T4–T8. */
   rawInputPerBatch?: number;
   lowerRefinedInputPerBatch?: number;
@@ -359,6 +365,16 @@ export interface EnchantingProfitResponse {
   royalBuyOrderRankFinal2?: RoyalCityEnchantBuyProfit[];
   bestProfitBuyOrderFinal2?: number | null;
   bestProfitBuyOrderCityItFinal2?: string | null;
+}
+
+export interface EnchantingMasterpieceCategoryResponse {
+  category: string;
+  bestProfit1?: number | null;
+  bestItemId1?: string | null;
+  bestProfit2?: number | null;
+  bestItemId2?: string | null;
+  bestProfit3?: number | null;
+  bestItemId3?: string | null;
 }
 
 export interface EnchantmentMaterialStripResponse {
