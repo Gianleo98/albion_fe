@@ -484,8 +484,17 @@ export const getCraftingSettings = async (): Promise<CraftingSettingsResponse> =
   return data;
 };
 
-export const setCraftingSettings = async (premium: boolean): Promise<CraftingSettingsResponse> => {
-  const { data } = await api.put<CraftingSettingsResponse>('/api/crafting-settings', { premium });
+export type CraftingSettingsUpdatePayload = {
+  premium?: boolean;
+  transportMaxLoadKg?: number;
+  porkPieBonusPercent?: number;
+};
+
+export const setCraftingSettings = async (
+  payload: boolean | CraftingSettingsUpdatePayload,
+): Promise<CraftingSettingsResponse> => {
+  const body = typeof payload === 'boolean' ? { premium: payload } : payload;
+  const { data } = await api.put<CraftingSettingsResponse>('/api/crafting-settings', body);
   return data;
 };
 

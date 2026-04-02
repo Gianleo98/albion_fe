@@ -16,6 +16,7 @@ import {
   IonSelectOption,
   IonToggle,
   IonListHeader,
+  IonInput,
   useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
@@ -34,6 +35,10 @@ import {
 } from 'ionicons/icons';
 import { triggerPriceUpdate, triggerBlackMarketUpdate, triggerCraftingProfitUpdate, triggerRoyalContinentUpdate, triggerFocusProfitUpdate, recomputeRoyalContinentFlip, getRateLimitStatus, getCraftingBonuses, getCraftingBonusCategories, setDailyBonuses, getCraftingSettings, setCraftingSettings as updateCraftingSettings } from '../services/api';
 import type { RateLimitStatus, CraftingBonusResponse, CraftingSettingsResponse } from '../types';
+import {
+  DEFAULT_PORKPIE_BONUS_PERCENT,
+  DEFAULT_TRANSPORT_MAX_LOAD_KG,
+} from '../utils/refiningTransport';
 import './AppHeader.css';
 
 interface AppHeaderProps {
@@ -45,6 +50,8 @@ interface AppHeaderProps {
   onEnchantingUpdated?: () => void;
   /** Stesso job royal: ricarica tab Refining (arbitraggio / focus .3) */
   onRefiningUpdated?: () => void;
+  /** Dopo salvataggio max load / % Porkpie (DB) — aggiorna Refining, Flip, ecc. */
+  onTransportSettingsSaved?: () => void;
   lastUpdate?: string | null;
 }
 
@@ -65,6 +72,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onFlipUpdated,
   onEnchantingUpdated,
   onRefiningUpdated,
+  onTransportSettingsSaved,
   lastUpdate,
 }) => {
   const history = useHistory();
@@ -96,6 +104,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const [savingPremium, setSavingPremium] = useState(false);
   const [settingsExpandAggiorna, setSettingsExpandAggiorna] = useState(false);
   const [settingsExpandRicalcola, setSettingsExpandRicalcola] = useState(false);
+  const [transportDraft, setTransportDraft] = useState({
+    maxLoadKg: DEFAULT_TRANSPORT_MAX_LOAD_KG,
+    porkPieBonusPercent: DEFAULT_PORKPIE_BONUS_PERCENT,
+  });
+  const [savingRefiningTransport, setSavingRefiningTransport] = useState(false);
   const [presentToast] = useIonToast();
 
   const dailyBonusesSet = (craftingBonuses?.dailyBonuses?.length ?? 0) >= 1;
@@ -117,13 +130,45 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       const daily = bonusData.dailyBonuses ?? [];
       setDailyBonus1(daily[0]?.category ?? '');
       setDailyBonus2(daily[1]?.category ?? '');
+      setTransportDraft({
+        maxLoadKg: settingsData.transportMaxLoadKg ?? DEFAULT_TRANSPORT_MAX_LOAD_KG,
+        porkPieBonusPercent: settingsData.porkPieBonusPercent ?? DEFAULT_PORKPIE_BONUS_PERCENT,
+      });
     } catch { /* ignore */ }
+  };
+
+  const handleSaveRefiningTransport = async () => {
+    setSavingRefiningTransport(true);
+    try {
+      const normalizePct = (n: number) => Math.min(200, Math.max(-50, n));
+      const maxLoad = Math.max(1, transportDraft.maxLoadKg || DEFAULT_TRANSPORT_MAX_LOAD_KG);
+      const updated = await updateCraftingSettings({
+        transportMaxLoadKg: maxLoad,
+        porkPieBonusPercent: normalizePct(transportDraft.porkPieBonusPercent),
+      });
+      setCraftingSettings(updated);
+      setTransportDraft({
+        maxLoadKg: updated.transportMaxLoadKg ?? maxLoad,
+        porkPieBonusPercent: updated.porkPieBonusPercent ?? DEFAULT_PORKPIE_BONUS_PERCENT,
+      });
+      presentToast({
+        message: 'Trasporto salvato sul database.',
+        duration: 2200,
+        color: 'success',
+        position: 'top',
+      });
+      onTransportSettingsSaved?.();
+    } catch {
+      presentToast({ message: 'Salvataggio fallito.', duration: 2000, color: 'danger', position: 'top' });
+    } finally {
+      setSavingRefiningTransport(false);
+    }
   };
 
   const handlePremiumChange = async (premium: boolean) => {
     setSavingPremium(true);
     try {
-      const updated = await updateCraftingSettings(premium);
+      const updated = await updateCraftingSettings({ premium });
       setCraftingSettings(updated);
       presentToast({
         message: `Tassa vendita: ${premium ? '4%' : '8%'}. BM/Flip: «Ricalcola Black Market». Enchanting/Focus: ricarica le liste.`,
@@ -600,6 +645,53 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="settings-section settings-section-refining-transport">
+            <div className="settings-section-header">
+              <span className="settings-section-label">Trasporto (Refining · Flip Royal)</span>
+            </div>
+            <IonItem lines="none" className="settings-input-item">
+              <IonLabel position="stacked">Max load (kg)</IonLabel>
+              <IonInput
+                type="number"
+                inputmode="decimal"
+                value={transportDraft.maxLoadKg === 0 ? '' : String(transportDraft.maxLoadKg)}
+                onIonInput={(e) => {
+                  const v = e.detail.value ?? '';
+                  const n = parseFloat(v);
+                  setTransportDraft((d) => ({
+                    ...d,
+                    maxLoadKg: v === '' || !Number.isFinite(n) ? 0 : n,
+                  }));
+                }}
+              />
+            </IonItem>
+            <IonItem lines="none" className="settings-input-item">
+              <IonLabel position="stacked">Porkpie — bonus % capacità</IonLabel>
+              <IonInput
+                type="number"
+                inputmode="decimal"
+                value={String(transportDraft.porkPieBonusPercent)}
+                onIonInput={(e) => {
+                  const n = parseFloat(e.detail.value ?? '0');
+                  setTransportDraft((d) => ({
+                    ...d,
+                    porkPieBonusPercent: Number.isFinite(n) ? n : 0,
+                  }));
+                }}
+              />
+            </IonItem>
+            <IonButton
+              expand="block"
+              fill="solid"
+              size="small"
+              className="settings-save-btn"
+              disabled={savingRefiningTransport}
+              onClick={() => void handleSaveRefiningTransport()}
+            >
+              {savingRefiningTransport ? <IonSpinner name="dots" /> : 'Salva trasporto'}
+            </IonButton>
           </div>
 
           <div className="popover-footer">

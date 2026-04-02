@@ -231,6 +231,26 @@ const ALBION_ITEM_ICON_BASE = 'https://render.albiononline.com/v1/item/';
 
 const albionItemIconUrl = (itemId: string) => `${ALBION_ITEM_ICON_BASE}${itemId}.png`;
 
+const parseTierFromFullItemId = (itemId: string): number => {
+  const m = itemId.match(/^T(\d+)_/);
+  return m ? Number(m[1]) : 0;
+};
+
+/** Id riga lista enchanting (sempre @3) per salvataggi e API dettaglio. */
+const enchantingCanonicalItemId3 = (fullItemId: string): string => {
+  const at = fullItemId.indexOf('@');
+  const base = at >= 0 ? fullItemId.slice(0, at) : fullItemId;
+  return `${base}@3`;
+};
+
+type MasterpieceListRow = {
+  category: string;
+  displayItemId: string;
+  profit: number;
+  tier: number;
+  canonicalItemId: string;
+};
+
 /** Id completo item base su mercato (es. T5_MAIN_SWORD, T5_MAIN_SWORD@1). */
 const enchantBaseFullItemId = (tier: number, baseItemId: string, enchant: 0 | 1 | 2): string => {
   const p = `T${tier}_${baseItemId}`;
@@ -629,6 +649,41 @@ const EnchantingPage: React.FC = () => {
 
   const enchantPriceAvgs = useMemo(() => buildEnchantListPriceAvgs(items), [items]);
 
+  const masterpieceListRows = useMemo((): MasterpieceListRow[] => {
+    if (!masterpieceOnly || masterpieceCategories.length === 0) return [];
+    const pv = profitPathView;
+    const rows: MasterpieceListRow[] = [];
+    for (const c of masterpieceCategories) {
+      if (pv === '1' && c.bestProfit1 != null && c.bestItemId1) {
+        rows.push({
+          category: c.category,
+          displayItemId: c.bestItemId1,
+          profit: Number(c.bestProfit1),
+          tier: parseTierFromFullItemId(c.bestItemId1),
+          canonicalItemId: enchantingCanonicalItemId3(c.bestItemId1),
+        });
+      } else if (pv === '2' && c.bestProfit2 != null && c.bestItemId2) {
+        rows.push({
+          category: c.category,
+          displayItemId: c.bestItemId2,
+          profit: Number(c.bestProfit2),
+          tier: parseTierFromFullItemId(c.bestItemId2),
+          canonicalItemId: enchantingCanonicalItemId3(c.bestItemId2),
+        });
+      } else if (pv === '3' && c.bestProfit3 != null && c.bestItemId3) {
+        rows.push({
+          category: c.category,
+          displayItemId: c.bestItemId3,
+          profit: Number(c.bestProfit3),
+          tier: parseTierFromFullItemId(c.bestItemId3),
+          canonicalItemId: enchantingCanonicalItemId3(c.bestItemId3),
+        });
+      }
+    }
+    rows.sort((a, b) => b.profit - a.profit);
+    return rows;
+  }, [masterpieceOnly, masterpieceCategories, profitPathView]);
+
   const filteredSavedItems = useMemo(
     () => savedItems.filter((s) => Number(s.finalEnchant ?? 3) === Number(profitPathView)),
     [savedItems, profitPathView]
@@ -817,6 +872,20 @@ const EnchantingPage: React.FC = () => {
     setDetailItem(null);
   };
 
+  const openMasterpieceRowDetail = async (row: MasterpieceListRow) => {
+    const item = await getEnchantingProfitByItemId(row.canonicalItemId);
+    if (item) {
+      void openEnchantDetailForItem(item);
+    } else {
+      presentToast({
+        message: 'Dettaglio non disponibile per questo item.',
+        duration: 2200,
+        color: 'medium',
+        position: 'top',
+      });
+    }
+  };
+
   const saveEnchantingTracking = async () => {
     if (!detailItem) return;
     setTrackSaving(true);
@@ -943,74 +1012,6 @@ const EnchantingPage: React.FC = () => {
 
           {listMode === 'all' && (
             <>
-              <IonItem
-                lines="none"
-                style={{ '--padding-start': '16px', '--inner-padding-end': '16px' } as { [key: string]: string }}
-              >
-                <IonLabel>Mostra lista Masterpiece per categoria (.1/.2/.3)</IonLabel>
-                <IonToggle
-                  checked={masterpieceOnly}
-                  onIonChange={(e) => setMasterpieceOnly(e.detail.checked)}
-                />
-              </IonItem>
-
-              {masterpieceOnly && (
-                <p className="cp-count" style={{ padding: '0 16px', fontSize: '0.85rem', opacity: 0.85 }}>
-                  Solo item <strong>MASTERPIECE</strong> (qualita massima), prezzi royal continent
-                  (Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford), esclusi Caerleon e Brecilien.
-                </p>
-              )}
-
-              {masterpieceOnly && masterpieceLoading && (
-                <div className="cp-state-container">
-                  <IonSpinner name="crescent" />
-                </div>
-              )}
-
-              {masterpieceOnly && masterpieceError && !masterpieceLoading && (
-                <div className="cp-state-container">
-                  <p>{masterpieceError}</p>
-                </div>
-              )}
-
-              {masterpieceOnly && !masterpieceLoading && !masterpieceError && masterpieceCategories.length > 0 && (
-                <IonList className="cp-list">
-                  {masterpieceCategories.map((c) => (
-                    <IonItem key={c.category} className="cp-item">
-                      <IonLabel>
-                        <h3 className="cp-item-name">{c.category}</h3>
-                        <div className="cp-meta">
-                          <span className="cp-rrr">
-                            .1: <strong>{formatProfitMaybe(c.bestProfit1)}</strong>{' '}
-                            {c.bestItemId1 ? <>({c.bestItemId1})</> : null}
-                          </span>
-                        </div>
-                        <div className="cp-meta">
-                          <span className="cp-rrr">
-                            .2: <strong>{formatProfitMaybe(c.bestProfit2)}</strong>{' '}
-                            {c.bestItemId2 ? <>({c.bestItemId2})</> : null}
-                          </span>
-                        </div>
-                        <div className="cp-meta">
-                          <span className="cp-rrr">
-                            .3: <strong>{formatProfitMaybe(c.bestProfit3)}</strong>{' '}
-                            {c.bestItemId3 ? <>({c.bestItemId3})</> : null}
-                          </span>
-                        </div>
-                      </IonLabel>
-                    </IonItem>
-                  ))}
-                </IonList>
-              )}
-
-              {masterpieceOnly && !masterpieceLoading && !masterpieceError && masterpieceCategories.length === 0 && (
-                <div className="cp-state-container">
-                  <p>Nessun dato Masterpiece disponibile.</p>
-                </div>
-              )}
-
-              {!masterpieceOnly && (
-                <>
               <div className="cp-search-row">
                 <IonItem className="cp-search-item" lines="none">
                   <IonIcon icon={searchOutline} slot="start" />
@@ -1048,43 +1049,202 @@ const EnchantingPage: React.FC = () => {
                 >
                   <IonIcon icon={sortDirection === 'DESC' ? arrowDownOutline : arrowUpOutline} />
                 </IonButton>
+                <IonButton
+                  fill={masterpieceOnly ? 'solid' : 'clear'}
+                  className="cp-toolbar-icon-btn"
+                  onClick={() => setMasterpieceOnly((v) => !v)}
+                  title="Vista Masterpiece per categoria"
+                >
+                  MP
+                </IonButton>
               </div>
 
-              <p className="cp-count" style={{ padding: '0 16px', fontSize: '0.85rem', opacity: 0.85 }}>
-                <strong>.1 / .2 / .3</strong> = <strong>prodotto finale</strong> enchant: il profitto è ricavo (sell min
-                Lymhurst su quell’item @1, @2 o @3) meno il costo minimo per <strong>ottenere quel livello</strong>{' '}
-                (compra al livello oppure enchant: Rune 0→1, Soul 1→2, Relic 2→3). La vista <strong>.3</strong> è come
-                prima (miglior percorso fino a .3). <strong>Sell order</strong>: tassa + setup 2,5%.{' '}
-                <strong>Buy order</strong>: buy max royal sullo stesso item finale. Colori vs <strong>media lista</strong>{' '}
-                (tier).
-              </p>
-
-              {!loading && totalElements > 0 && <p className="cp-count">{totalElements} item</p>}
-
-              {loading && (
-                <div className="cp-state-container">
-                  <IonSpinner name="crescent" />
-                </div>
-              )}
-
-              {error && !loading && (
-                <div className="cp-state-container">
-                  <p>{error}</p>
-                </div>
-              )}
-
-              {!loading && !error && items.length === 0 && (
-                <div className="cp-state-container">
-                  <p>Nessun risultato.</p>
-                </div>
-              )}
-
-              {!loading && !error && items.length > 0 && (
+              {masterpieceOnly ? (
                 <>
-                  <IonList className="cp-list">
-                    {items
-                      .filter((item) => item.iconUrl && !failedIcons.has(item.itemId))
-                      .map((item) => {
+                  <p className="cp-count" style={{ padding: '0 16px', fontSize: '0.85rem', opacity: 0.85 }}>
+                    Solo item <strong>MASTERPIECE</strong> (qualita massima), prezzi royal continent
+                    (Lymhurst, Bridgewatch, Martlock, Fort Sterling, Thetford), esclusi Caerleon e Brecilien.
+                  </p>
+                  {masterpieceLoading && (
+                    <div className="cp-state-container">
+                      <IonSpinner name="crescent" />
+                    </div>
+                  )}
+                  {masterpieceError && !masterpieceLoading && (
+                    <div className="cp-state-container">
+                      <p>{masterpieceError}</p>
+                    </div>
+                  )}
+                  {!masterpieceLoading && !masterpieceError && masterpieceCategories.length > 0 && (
+                    <>
+                      {masterpieceListRows.filter((row) => !failedIcons.has(row.displayItemId)).length === 0 ? (
+                        <div className="cp-state-container">
+                          <p>Nessun risultato Masterpiece per la vista .{profitPathView}.</p>
+                        </div>
+                      ) : (
+                        <IonList className="cp-list">
+                          {masterpieceListRows
+                            .filter((row) => !failedIcons.has(row.displayItemId))
+                            .map((row) => {
+                              const isSaved = savedEnchantKeySet.has(
+                                enchantingSavedCompositeKey(row.canonicalItemId, Number(profitPathView))
+                              );
+                              const refSell1 = enchantRefAvg(enchantPriceAvgs.sell1, row.tier);
+                              const refSell2 = enchantRefAvg(enchantPriceAvgs.sell2, row.tier);
+                              const refSell3 = enchantRefAvg(enchantPriceAvgs.sell3, row.tier);
+                              const sellP = row.profit;
+                              return (
+                                <IonItemSliding
+                                  key={`${row.category}-${row.displayItemId}`}
+                                  ref={(el) => {
+                                    slidingRefs.current[row.canonicalItemId] = el;
+                                  }}
+                                >
+                                  <IonItem
+                                    className="cp-item cp-item--enchant"
+                                    button
+                                    onClick={() => void openMasterpieceRowDetail(row)}
+                                  >
+                                    <div className="cp-item-left" slot="start">
+                                      <img
+                                        src={albionItemIconUrl(row.displayItemId)}
+                                        alt=""
+                                        className="cp-item-icon"
+                                        loading="lazy"
+                                        onError={() =>
+                                          setFailedIcons((prev) => new Set(prev).add(row.displayItemId))
+                                        }
+                                      />
+                                    </div>
+                                    <IonLabel>
+                                      <h3 className="cp-item-name">
+                                        T{row.tier} · {cleanItemName(row.displayItemId)} · MP
+                                      </h3>
+                                      <div className="cp-meta">
+                                        <span className="cp-rrr">
+                                          {profitPathView === '3' ? (
+                                            <>
+                                              Verso .3 · Masterpiece (royal) · <strong>{row.category}</strong>
+                                            </>
+                                          ) : profitPathView === '1' ? (
+                                            <>
+                                              Obiettivo <strong>.1</strong> · Masterpiece ·{' '}
+                                              <strong>{row.category}</strong>
+                                            </>
+                                          ) : (
+                                            <>
+                                              Obiettivo <strong>.2</strong> · Masterpiece ·{' '}
+                                              <strong>{row.category}</strong>
+                                            </>
+                                          )}
+                                        </span>
+                                        {isSaved && <span className="cp-saved-badge">Salvato</span>}
+                                      </div>
+                                    </IonLabel>
+                                    <div slot="end" className="cp-profit-col cp-profit-col--enchant">
+                                      <span className="cp-enchant-profit-label">Sell order</span>
+                                      <span
+                                        className={
+                                          sellP == null || !Number.isFinite(sellP)
+                                            ? 'cp-profit'
+                                            : `cp-profit ${sellP >= 0 ? 'positive' : 'negative'}`
+                                        }
+                                      >
+                                        {formatProfitMaybe(sellP)}
+                                      </span>
+                                      <span
+                                        className="cp-bm-price"
+                                        title="In vista MP il listino dettagliato non è mostrato qui; apri il dettaglio per i prezzi normali."
+                                      >
+                                        {profitPathView === '1' ? (
+                                          <>
+                                            .1 sell min:{' '}
+                                            <span className={priceVsAvgClass(0, refSell1)}>{formatPrice(0)}</span>
+                                          </>
+                                        ) : profitPathView === '2' ? (
+                                          <>
+                                            .2 sell min:{' '}
+                                            <span className={priceVsAvgClass(0, refSell2)}>{formatPrice(0)}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            .3 sell min:{' '}
+                                            <span className={priceVsAvgClass(0, refSell3)}>{formatPrice(0)}</span>
+                                          </>
+                                        )}
+                                      </span>
+                                      <span className="cp-enchant-profit-label">Buy order (royal)</span>
+                                      <span className="cp-bm-price">
+                                        — (non calcolato in vista MP; apri il dettaglio)
+                                      </span>
+                                    </div>
+                                  </IonItem>
+                                  <IonItemOptions
+                                    side="end"
+                                    onIonSwipe={() =>
+                                      openSaveAlert(row.canonicalItemId, Number(profitPathView), isSaved)
+                                    }
+                                  >
+                                    <IonItemOption
+                                      color={isSaved ? 'danger' : 'success'}
+                                      onClick={() =>
+                                        openSaveAlert(row.canonicalItemId, Number(profitPathView), isSaved)
+                                      }
+                                    >
+                                      <IonIcon icon={isSaved ? trashOutline : bookmarkOutline} slot="start" />
+                                      {isSaved ? 'Rimuovi' : 'Salva'}
+                                    </IonItemOption>
+                                  </IonItemOptions>
+                                </IonItemSliding>
+                              );
+                            })}
+                        </IonList>
+                      )}
+                    </>
+                  )}
+                  {!masterpieceLoading && !masterpieceError && masterpieceCategories.length === 0 && (
+                    <div className="cp-state-container">
+                      <p>Nessun dato Masterpiece disponibile.</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="cp-count" style={{ padding: '0 16px', fontSize: '0.85rem', opacity: 0.85 }}>
+                    <strong>.1 / .2 / .3</strong> = <strong>prodotto finale</strong> enchant: il profitto è ricavo (sell min
+                    Lymhurst su quell’item @1, @2 o @3) meno il costo minimo per <strong>ottenere quel livello</strong>{' '}
+                    (compra al livello oppure enchant: Rune 0→1, Soul 1→2, Relic 2→3). La vista <strong>.3</strong> è come
+                    prima (miglior percorso fino a .3). <strong>Sell order</strong>: tassa + setup 2,5%.{' '}
+                    <strong>Buy order</strong>: buy max royal sullo stesso item finale. Colori vs <strong>media lista</strong>{' '}
+                    (tier).
+                  </p>
+
+                  {!loading && totalElements > 0 && <p className="cp-count">{totalElements} item</p>}
+
+                  {loading && (
+                    <div className="cp-state-container">
+                      <IonSpinner name="crescent" />
+                    </div>
+                  )}
+
+                  {error && !loading && (
+                    <div className="cp-state-container">
+                      <p>{error}</p>
+                    </div>
+                  )}
+
+                  {!loading && !error && items.length === 0 && (
+                    <div className="cp-state-container">
+                      <p>Nessun risultato.</p>
+                    </div>
+                  )}
+
+                  {!loading && !error && items.length > 0 && (
+                    <>
+                      <IonList className="cp-list">
+                        {items
+                          .filter((item) => item.iconUrl && !failedIcons.has(item.itemId))
+                          .map((item) => {
                         const isSaved = savedEnchantKeySet.has(
                           enchantingSavedCompositeKey(item.itemId, Number(profitPathView))
                         );
@@ -1230,13 +1390,13 @@ const EnchantingPage: React.FC = () => {
                             </IonItemOptions>
                           </IonItemSliding>
                         );
-                      })}
-                  </IonList>
-                  <IonInfiniteScroll disabled={!hasMore} onIonInfinite={loadMore}>
-                    <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Caricamento..." />
-                  </IonInfiniteScroll>
-                </>
-              )}
+                          })}
+                      </IonList>
+                      <IonInfiniteScroll disabled={!hasMore} onIonInfinite={loadMore}>
+                        <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Caricamento..." />
+                      </IonInfiniteScroll>
+                    </>
+                  )}
                 </>
               )}
             </>

@@ -263,6 +263,19 @@
   margin: 0 8px 6px !important;
 }
 
+/* Bottoni filtro compact: occupano tutto lo spazio disponibile in modo uniforme */
+.refining-filter-toolbar {
+  margin-top: 8px;
+}
+
+.refining-filter-toolbar .cp-toolbar-icon-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  font-size: 0.82rem;
+}
+
 .refining-help--tight ion-item[slot='header'] {
   --min-height: 40px;
   font-size: 0.82rem;
@@ -396,4 +409,25 @@
 
 .refining-detail-close-btn {
   margin-top: 20px;
+}
+
+.refining-transport-block {
+  margin: 14px 0 10px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--ion-color-secondary-rgb, 45, 211, 111), 0.35);
+  background: rgba(var(--ion-color-secondary-rgb, 45, 211, 111), 0.06);
+}
+
+.refining-transport-hint {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  color: var(--ion-color-medium);
+  line-height: 1.45;
+}
+
+.refining-transport-list {
+  margin-top: 4px;
 }

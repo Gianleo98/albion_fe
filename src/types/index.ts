@@ -599,6 +599,10 @@ export interface CraftingBonusResponse {
 export interface CraftingSettingsResponse {
   premium: boolean;
   marketTaxPercent: number;
+  /** Capacità base trasporto (kg), DB. */
+  transportMaxLoadKg?: number;
+  /** Unica % bonus capacità Porkpie, DB. */
+  porkPieBonusPercent?: number;
 }
 
 // --- Rate Limit ---

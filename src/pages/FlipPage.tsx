@@ -52,6 +52,7 @@ import {
   saveRoyalFlipItem,
   deleteSavedRoyalFlipItem,
   getSavedRoyalFlipItemsWithCurrent,
+  getCraftingSettings,
 } from '../services/api';
 import { refreshFlipHighProfitAlerts } from '../services/flipHighProfitNotify';
 import type {
@@ -62,6 +63,13 @@ import type {
   SortOption,
 } from '../types';
 import AppHeader from '../components/AppHeader';
+import {
+  DEFAULT_PORKPIE_BONUS_PERCENT,
+  DEFAULT_TRANSPORT_MAX_LOAD_KG,
+  computeRoyalFlipMammothUserTrip,
+  transportLoadFromCraftingSettings,
+} from '../utils/refiningTransport';
+import type { TransportLoadSettings } from '../utils/refiningTransport';
 import './CraftingPage.css';
 
 const formatPrice = (price: number) =>
@@ -111,6 +119,10 @@ const FlipPage: React.FC = () => {
   /** Solo item homepage + rotte dove partenza o arrivo mammouth è sempre Lymhurst (vs FS/BW); stima carico */
   const [lymhurstLocalHomeFlip, setLymhurstLocalHomeFlip] = useState(false);
   const [lastRoyalComputedHint, setLastRoyalComputedHint] = useState<string | null>(null);
+  const [transportLoad, setTransportLoad] = useState<TransportLoadSettings>({
+    maxLoadKg: DEFAULT_TRANSPORT_MAX_LOAD_KG,
+    porkPieBonusPercent: DEFAULT_PORKPIE_BONUS_PERCENT,
+  });
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didMountSearchRef = useRef(false);
   const didMountModeRef = useRef(false);
@@ -273,6 +285,15 @@ const FlipPage: React.FC = () => {
     }
   }, [flipListMode, royalFlipPath]);
 
+  const refreshTransportLoad = useCallback(async () => {
+    try {
+      const s = await getCraftingSettings();
+      setTransportLoad(transportLoadFromCraftingSettings(s));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const fetchInitial = async () => {
     try {
       setError(null);
@@ -294,6 +315,7 @@ const FlipPage: React.FC = () => {
 
   useIonViewWillEnter(() => {
     void fetchInitial();
+    void refreshTransportLoad();
   });
 
   useEffect(() => {
@@ -427,6 +449,7 @@ const FlipPage: React.FC = () => {
             });
           }
         }}
+        onTransportSettingsSaved={() => void refreshTransportLoad()}
       />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
@@ -523,9 +546,11 @@ const FlipPage: React.FC = () => {
               <strong>2,5% setup</strong>. L&apos;icona <strong>casa</strong> limita agli item della{' '}
               <strong>homepage</strong> e alle rotte in cui <strong>Lymhurst è sempre partenza o arrivo</strong> (vs
               Bridgewatch o Fort Sterling), con stima
-              unità e profitto per <strong>viaggio mammouth</strong> (capacità configurabile sul backend). Ordina per{' '}
-              <strong>Profitto viaggio mammouth (stima)</strong> per confrontare il carico. In{' '}
-              <strong>Impostazioni</strong>, sotto Dati e ricalcoli espandi <strong>Ricalcola</strong> e usa{' '}
+              unità e profitto per <strong>viaggio mammouth</strong> (max load e Porkpie in{' '}
+              <strong>Impostazioni → Refining · trasporto</strong>). Ordina per{' '}
+              <strong>Profitto viaggio mammouth (stima)</strong> per confrontare il carico (ordinamento lato server; le
+              cifre in lista seguono le tue impostazioni). In <strong>Impostazioni</strong>, sotto Dati e ricalcoli espandi{' '}
+              <strong>Ricalcola</strong> e usa{' '}
               <strong>Ricalcola flip Royal Continent</strong>; se i prezzi sono vecchi, espandi <strong>Aggiorna</strong> e usa{' '}
               <strong>Aggiorna Royal Continent</strong>.
               {lastRoyalComputedHint && (
@@ -850,6 +875,14 @@ const FlipPage: React.FC = () => {
                   const r = item;
                   const isSavedRoyal = savedRoyalItemIds.has(r.itemId);
                   const royalBo = royalFlipPath === 'BO';
+                  const profitPath = royalBo ? r.boProfit : r.soProfit;
+                  const userMammoth =
+                    lymhurstLocalHomeFlip &&
+                    r.mammothMaxWeightKgApplied != null &&
+                    r.mammothMaxWeightKgApplied > 0 &&
+                    profitPath > 0
+                      ? computeRoyalFlipMammothUserTrip(r.itemId, profitPath, transportLoad)
+                      : null;
                   const boLine =
                     royalBo && r.boProfit > 0 && r.boBuyCity && r.boSellCity ? (
                       <div className="cp-resources" style={{ marginTop: 6 }}>
@@ -935,7 +968,27 @@ const FlipPage: React.FC = () => {
                             ? `Ricavo: solo tassa mercato ${r.taxPercentApplied}% (nessun setup 2,5%).`
                             : `Ricavo: tassa ${r.taxPercentApplied}% + setup listino 2,5% (come Focus).`}
                         </div>
-                        {r.mammothMaxWeightKgApplied != null &&
+                        {userMammoth &&
+                          userMammoth.unitsPerTrip > 0 &&
+                          userMammoth.tripProfitSilver > 0 && (
+                            <div style={{ fontSize: '0.72rem', opacity: 0.78, marginTop: 4 }}>
+                              Mammouth ~{userMammoth.unitsPerTrip} u × ~{userMammoth.weightKg.toFixed(2)} kg/u ·{' '}
+                              <strong>+{formatPrice(userMammoth.tripProfitSilver)}</strong> / viaggio (
+                              ~{Math.round(userMammoth.effectiveMaxLoadKg)} kg eff.
+                              {userMammoth.porkPieBonusPercentApplied !== 0
+                                ? `, Porkpie +${userMammoth.porkPieBonusPercentApplied}%`
+                                : ''}
+                              )
+                            </div>
+                          )}
+                        {userMammoth && userMammoth.unitsPerTrip === 0 && lymhurstLocalHomeFlip && (
+                            <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 2 }}>
+                              Stima peso: oltre capacità con le tue impostazioni (~
+                              {Math.round(userMammoth.effectiveMaxLoadKg)} kg eff.) — profitto solo per unità.
+                            </div>
+                          )}
+                        {!userMammoth &&
+                          r.mammothMaxWeightKgApplied != null &&
                           r.mammothMaxWeightKgApplied > 0 &&
                           (r.mammothUnitsPerTrip ?? 0) > 0 &&
                           (r.mammothTripProfitSilver ?? 0) > 0 && (
@@ -945,7 +998,8 @@ const FlipPage: React.FC = () => {
                               {Math.round(r.mammothMaxWeightKgApplied)} kg)
                             </div>
                           )}
-                        {r.mammothMaxWeightKgApplied != null &&
+                        {!userMammoth &&
+                          r.mammothMaxWeightKgApplied != null &&
                           (r.mammothUnitsPerTrip ?? 0) === 0 &&
                           lymhurstLocalHomeFlip && (
                             <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 2 }}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IonAccordion,
   IonAccordionGroup,
@@ -19,14 +19,20 @@ import {
   IonSpinner,
   IonThumbnail,
   IonTitle,
-  IonToggle,
   IonToolbar,
   useIonViewWillEnter,
 } from '@ionic/react';
-import { informationCircleOutline } from 'ionicons/icons';
-import { getRefiningFocusPlans, getRefiningOpportunities } from '../services/api';
+import { chevronBackOutline, informationCircleOutline } from 'ionicons/icons';
+import { getRefiningFocusPlans, getRefiningOpportunities, getCraftingSettings } from '../services/api';
 import type { RefiningFocusPlanResponse, RefiningOpportunityResponse } from '../types';
 import AppHeader from '../components/AppHeader';
+import RefiningTransportBlock from '../components/RefiningTransportBlock';
+import {
+  DEFAULT_PORKPIE_BONUS_PERCENT,
+  DEFAULT_TRANSPORT_MAX_LOAD_KG,
+  transportLoadFromCraftingSettings,
+  type TransportLoadSettings,
+} from '../utils/refiningTransport';
 import './CraftingPage.css';
 import './RefiningPage.css';
 
@@ -73,12 +79,29 @@ type DetailState =
   | { kind: 'focus'; row: RefiningFocusPlanResponse }
   | null;
 
-function ArbitrageDetailBody({ r, onClose }: { r: RefiningOpportunityResponse; onClose: () => void }) {
+function ArbitrageDetailBody({
+  r,
+  rowsPool,
+  transportSettings,
+  onOpenArbitrage,
+  onClose,
+}: {
+  r: RefiningOpportunityResponse;
+  rowsPool: RefiningOpportunityResponse[];
+  transportSettings: TransportLoadSettings;
+  onOpenArbitrage: (row: RefiningOpportunityResponse) => void;
+  onClose: () => void;
+}) {
   const q = arbitrageBatchQty(r);
   const listCost =
     r.listMaterialSilverPerBatch ?? q.raw * (r.rawUnitBuySilver ?? 0) + q.lower * (r.lowerRefinedUnitBuySilver ?? 0);
   const effectiveCost = r.effectiveMaterialSilverPerBatch ?? listCost;
   const rrrNoFocus = r.returnRateWithoutFocusPercent;
+  const [showReturn, setShowReturn] = useState(false);
+  const returnOptions = useMemo(
+    () => findReturnArbitrageOptions(r.sellRefinedCity, rowsPool).slice(0, 5),
+    [r.sellRefinedCity, rowsPool],
+  );
   return (
     <div className="refining-detail-body">
       <div className="refining-detail-hero">
@@ -104,30 +127,6 @@ function ArbitrageDetailBody({ r, onClose }: { r: RefiningOpportunityResponse; o
             +{formatPrice(r.batchProfitSilver)} <span className="refining-detail-hero-profit-label">su {q.out} output</span>
           </p>
         </div>
-      </div>
-
-      <div className="refining-shopping-summary">
-        <div className="refining-prices-title">Cosa prendere (per {q.out} output T{r.tier})</div>
-        <ul className="refining-shopping-rows">
-          <li>
-            <span className="refining-shopping-qty">{q.raw}</span>
-            <span className="refining-shopping-desc">
-              pezzi <strong>raw T{r.tier}</strong> — <strong>{r.buyRawCity}</strong>
-            </span>
-          </li>
-          <li>
-            <span className="refining-shopping-qty">{q.lower}</span>
-            <span className="refining-shopping-desc">
-              pezzi <strong>raffinato T{r.tier - 1}</strong> — <strong>{r.refineBonusCity}</strong>
-            </span>
-          </li>
-          <li>
-            <span className="refining-shopping-qty">{q.out}</span>
-            <span className="refining-shopping-desc">
-              pezzi <strong>output</strong> — vendita <strong>{r.sellRefinedCity}</strong>
-            </span>
-          </li>
-        </ul>
       </div>
 
       <div className="refining-prices-block">
@@ -178,6 +177,70 @@ function ArbitrageDetailBody({ r, onClose }: { r: RefiningOpportunityResponse; o
         </div>
       </div>
 
+      <RefiningTransportBlock
+        transportSettings={transportSettings}
+        rawItemId={r.rawItemId}
+        lowerItemId={r.lowerRefinedItemId}
+        rawQty={q.raw}
+        lowerQty={q.lower}
+        batchProfitSilver={r.batchProfitSilver}
+      />
+
+      {r.sellRefinedCity !== 'Lymhurst' && (
+        <>
+          <IonButton expand="block" fill={showReturn ? 'solid' : 'outline'} onClick={() => setShowReturn((v) => !v)}>
+            Ritorno
+          </IonButton>
+          {showReturn && (
+            <div style={{ marginTop: 10 }}>
+              <div className="refining-prices-title" style={{ marginBottom: 6 }}>
+                Lista ritorno: {r.sellRefinedCity} {'->'} Lymhurst
+              </div>
+              {returnOptions.length > 0 ? (
+                <IonList className="cp-list refining-compact-list">
+                  {returnOptions.map((x) => (
+                    <IonItem
+                      key={`${x.rawItemId}-${x.tier}-${x.buyRawCity}-${x.sellRefinedCity}`}
+                      lines="full"
+                      className="refining-compact-item"
+                      button
+                      detail
+                      onClick={() => onOpenArbitrage(x)}
+                    >
+                      {x.refinedIconUrl && (
+                        <IonThumbnail slot="start" className="refining-compact-thumb-wrap">
+                          <img
+                            src={x.refinedIconUrl}
+                            alt=""
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </IonThumbnail>
+                      )}
+                      <IonLabel>
+                        <h3 className="refining-compact-title">
+                          {x.resourceLineLabel} · T{x.tier}
+                        </h3>
+                        <p className="refining-compact-sub">
+                          {x.buyRawCity} {'->'} {x.refineBonusCity} {'->'} {x.sellRefinedCity}
+                        </p>
+                      </IonLabel>
+                      <div slot="end" className="refining-compact-profit">
+                        +{formatPrice(x.batchProfitSilver)}
+                      </div>
+                    </IonItem>
+                  ))}
+                </IonList>
+              ) : (
+                <p style={{ margin: 0 }}>Nessun pattern di ritorno disponibile al momento.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
       <IonButton expand="block" fill="outline" className="refining-detail-close-btn" onClick={onClose}>
         Chiudi
       </IonButton>
@@ -185,11 +248,30 @@ function ArbitrageDetailBody({ r, onClose }: { r: RefiningOpportunityResponse; o
   );
 }
 
-function FocusDetailBody({ p, disclaimer, onClose }: { p: RefiningFocusPlanResponse; disclaimer?: string; onClose: () => void }) {
+function FocusDetailBody({
+  p,
+  focusPool,
+  transportSettings,
+  onOpenFocus,
+  disclaimer,
+  onClose,
+}: {
+  p: RefiningFocusPlanResponse;
+  focusPool: RefiningFocusPlanResponse[];
+  transportSettings: TransportLoadSettings;
+  onOpenFocus: (row: RefiningFocusPlanResponse) => void;
+  disclaimer?: string;
+  onClose: () => void;
+}) {
   const lowerIsEnchanted = !!p.lowerRefinedItemId?.includes('_LEVEL');
   const rawQty = p.materials?.[0]?.quantity ?? p.rawInputPerBatch ?? 0;
   const lowerQty = p.materials?.[1]?.quantity ?? p.lowerRefinedInputPerBatch ?? 0;
   const out = p.outputPerBatch ?? 100;
+  const [showReturn, setShowReturn] = useState(false);
+  const returnOptions = useMemo(
+    () => findReturnFocusOptions(p.sellRefinedCity, focusPool).slice(0, 5),
+    [p.sellRefinedCity, focusPool],
+  );
 
   return (
     <div className="refining-detail-body">
@@ -266,6 +348,26 @@ function FocusDetailBody({ p, disclaimer, onClose }: { p: RefiningFocusPlanRespo
         </div>
       </div>
 
+      {p.materials?.[0]?.itemId && p.materials?.[1]?.itemId ? (
+        <RefiningTransportBlock
+          transportSettings={transportSettings}
+          rawItemId={p.materials[0].itemId}
+          lowerItemId={p.materials[1].itemId}
+          rawQty={rawQty}
+          lowerQty={lowerQty}
+          batchProfitSilver={p.profitSilverPerBatch ?? 0}
+        />
+      ) : p.rawItemId && p.lowerRefinedItemId ? (
+        <RefiningTransportBlock
+          transportSettings={transportSettings}
+          rawItemId={p.rawItemId}
+          lowerItemId={p.lowerRefinedItemId}
+          rawQty={rawQty}
+          lowerQty={lowerQty}
+          batchProfitSilver={p.profitSilverPerBatch ?? 0}
+        />
+      ) : null}
+
       <div className="refining-focus-meta">
         Costo (stima focus) ~{formatPrice(p.totalEffectiveMaterialSilverListed ?? 0)} · Ricavo ~
         {formatPrice(p.totalRevenueSilverListed ?? 0)}
@@ -279,6 +381,61 @@ function FocusDetailBody({ p, disclaimer, onClose }: { p: RefiningFocusPlanRespo
 
       {disclaimer ? <div className="refining-disclaimer-foot">{disclaimer}</div> : null}
 
+      {p.sellRefinedCity !== 'Lymhurst' && (
+        <>
+          <IonButton expand="block" fill={showReturn ? 'solid' : 'outline'} onClick={() => setShowReturn((v) => !v)}>
+            Ritorno
+          </IonButton>
+          {showReturn && (
+            <div style={{ marginTop: 10 }}>
+              <div className="refining-prices-title" style={{ marginBottom: 6 }}>
+                Lista ritorno: {p.sellRefinedCity} {'->'} Lymhurst
+              </div>
+              {returnOptions.length > 0 ? (
+                <IonList className="cp-list refining-compact-list">
+                  {returnOptions.map((x, idx) => (
+                    <IonItem
+                      key={`${x.rawItemId}-${x.tier}-${x.buyRawCity}-${x.sellRefinedCity}-${idx}`}
+                      lines="full"
+                      className="refining-compact-item"
+                      button
+                      detail
+                      onClick={() => onOpenFocus(x)}
+                    >
+                      {x.outputRefinedItemId && (
+                        <IonThumbnail slot="start" className="refining-compact-thumb-wrap">
+                          <img
+                            src={`https://render.albiononline.com/v1/item/${x.outputRefinedItemId.replace(/_LEVEL\d+/, '')}.png`}
+                            alt=""
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </IonThumbnail>
+                      )}
+                      <IonLabel>
+                        <h3 className="refining-compact-title">
+                          {x.resourceLineLabel} · T{x.tier} .3
+                        </h3>
+                        <p className="refining-compact-sub">
+                          {x.buyRawCity} {'->'} {x.refineBonusCity} {'->'} {x.sellRefinedCity}
+                        </p>
+                      </IonLabel>
+                      <div slot="end" className="refining-compact-profit">
+                        +{formatPrice(x.profitSilverPerBatch ?? 0)}
+                      </div>
+                    </IonItem>
+                  ))}
+                </IonList>
+              ) : (
+                <p style={{ margin: 0 }}>Nessun pattern di ritorno disponibile al momento.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
       <IonButton expand="block" fill="outline" className="refining-detail-close-btn" onClick={onClose}>
         Chiudi
       </IonButton>
@@ -287,6 +444,86 @@ function FocusDetailBody({ p, disclaimer, onClose }: { p: RefiningFocusPlanRespo
 }
 
 type ViewMode = 'arbitrage' | 'focus';
+
+const CITY_GRAPH: Record<string, string[]> = {
+  Lymhurst: ['Bridgewatch', 'Martlock'],
+  Bridgewatch: ['Lymhurst', 'Fort Sterling', 'Brecilien'],
+  Martlock: ['Lymhurst', 'Fort Sterling', 'Thetford'],
+  'Fort Sterling': ['Bridgewatch', 'Martlock', 'Thetford'],
+  Thetford: ['Martlock', 'Fort Sterling', 'Brecilien'],
+  Brecilien: ['Bridgewatch', 'Thetford'],
+};
+
+const REFINE_BONUS_BY_LINE: Record<string, string> = {
+  WOOD: 'Fort Sterling',
+  FIBER: 'Lymhurst',
+  STONE: 'Bridgewatch',
+  HIDE: 'Martlock',
+  ORE: 'Thetford',
+};
+
+/** Distanza tra citta come "numero di citta attraversate" (include partenza+arrivo): adiacenti=2, con 1 citta in mezzo=3. */
+const cityDistance = (from?: string | null, to?: string | null): number => {
+  if (!from || !to) return 99;
+  if (from === to) return 1;
+  if (!CITY_GRAPH[from] || !CITY_GRAPH[to]) return 99;
+
+  const visited = new Set<string>([from]);
+  const q: Array<{ city: string; hops: number }> = [{ city: from, hops: 0 }];
+  while (q.length > 0) {
+    const cur = q.shift();
+    if (!cur) break;
+    for (const nx of CITY_GRAPH[cur.city] ?? []) {
+      if (visited.has(nx)) continue;
+      if (nx === to) return cur.hops + 2;
+      visited.add(nx);
+      q.push({ city: nx, hops: cur.hops + 1 });
+    }
+  }
+  return 99;
+};
+
+/** Percorso completo buy -> refine -> sell, con citta condivisa contata una sola volta. */
+const routeDistanceScore = (buy?: string | null, refine?: string | null, sell?: string | null): number => {
+  const d1 = cityDistance(buy, refine);
+  const d2 = cityDistance(refine, sell);
+  if (d1 >= 99 || d2 >= 99) return 99;
+  return d1 + d2 - 1;
+};
+
+/** Ottimale = percorso corto: distanza totale massima 3. */
+const isOptimalDistanceRoute = (buy?: string | null, refine?: string | null, sell?: string | null): boolean =>
+  routeDistanceScore(buy, refine, sell) <= 3;
+
+const findReturnArbitrageOptions = (
+  fromCity: string | undefined,
+  pool: RefiningOpportunityResponse[],
+): RefiningOpportunityResponse[] =>
+  !fromCity
+    ? []
+    : pool
+        .filter(
+          (r) =>
+            r.buyRawCity === fromCity &&
+            r.sellRefinedCity === 'Lymhurst' &&
+            r.refineBonusCity === (REFINE_BONUS_BY_LINE[r.resourceLine] ?? r.refineBonusCity),
+        )
+        .sort((a, b) => b.batchProfitSilver - a.batchProfitSilver);
+
+const findReturnFocusOptions = (
+  fromCity: string | undefined,
+  pool: RefiningFocusPlanResponse[],
+): RefiningFocusPlanResponse[] =>
+  !fromCity
+    ? []
+    : pool
+        .filter(
+          (r) =>
+            r.buyRawCity === fromCity &&
+            r.sellRefinedCity === 'Lymhurst' &&
+            r.refineBonusCity === (REFINE_BONUS_BY_LINE[r.resourceLine ?? ''] ?? r.refineBonusCity),
+        )
+        .sort((a, b) => (b.profitSilverPerBatch ?? 0) - (a.profitSilverPerBatch ?? 0));
 
 const RefiningPage: React.FC = () => {
   const [view, setView] = useState<ViewMode>('arbitrage');
@@ -299,7 +536,38 @@ const RefiningPage: React.FC = () => {
   const [lymhurstAnchor, setLymhurstAnchor] = useState(true);
   /** true = solo 5 città royal (default); false = include Brecilien nei percorsi. */
   const [excludeBrecilien, setExcludeBrecilien] = useState(true);
+  const [optimalRouteOnly, setOptimalRouteOnly] = useState(false);
   const [detail, setDetail] = useState<DetailState>(null);
+  const [detailHistory, setDetailHistory] = useState<DetailState[]>([]);
+  const [transportLoad, setTransportLoad] = useState<TransportLoadSettings>({
+    maxLoadKg: DEFAULT_TRANSPORT_MAX_LOAD_KG,
+    porkPieBonusPercent: DEFAULT_PORKPIE_BONUS_PERCENT,
+  });
+
+  const refreshTransportLoad = useCallback(async () => {
+    try {
+      const s = await getCraftingSettings();
+      setTransportLoad(transportLoadFromCraftingSettings(s));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const visibleRows = useMemo(() => {
+    let list = rows;
+    if (optimalRouteOnly) {
+      list = list.filter((r) => isOptimalDistanceRoute(r.buyRawCity, r.refineBonusCity, r.sellRefinedCity));
+    }
+    return list;
+  }, [rows, optimalRouteOnly]);
+
+  const visibleFocusRows = useMemo(() => {
+    let list = focusRows;
+    if (optimalRouteOnly) {
+      list = list.filter((p) => isOptimalDistanceRoute(p.buyRawCity, p.refineBonusCity, p.sellRefinedCity));
+    }
+    return list;
+  }, [focusRows, optimalRouteOnly]);
 
   const loadArbitrage = useCallback(async () => {
     try {
@@ -332,6 +600,7 @@ const RefiningPage: React.FC = () => {
   useIonViewWillEnter(() => {
     void loadArbitrage();
     void loadFocus();
+    void refreshTransportLoad();
   });
 
   useEffect(() => {
@@ -358,7 +627,30 @@ const RefiningPage: React.FC = () => {
     void loadFocus();
   }, [loadArbitrage, loadFocus]);
 
-  const closeDetail = () => setDetail(null);
+  const closeDetail = () => {
+    setDetail(null);
+    setDetailHistory([]);
+  };
+
+  const openDetailRoot = (next: DetailState) => {
+    setDetail(next);
+    setDetailHistory(next ? [next] : []);
+  };
+
+  const pushDetail = (next: DetailState) => {
+    if (!next) return;
+    setDetail(next);
+    setDetailHistory((prev) => [...prev, next]);
+  };
+
+  const backDetail = () => {
+    setDetailHistory((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.slice(0, -1);
+      setDetail(next[next.length - 1] ?? null);
+      return next;
+    });
+  };
 
   const arbitrageHelp = (
     <ul>
@@ -396,7 +688,10 @@ const RefiningPage: React.FC = () => {
 
   return (
     <IonPage>
-      <AppHeader onRefiningUpdated={reloadFromSettings} />
+      <AppHeader
+        onRefiningUpdated={reloadFromSettings}
+        onTransportSettingsSaved={() => void refreshTransportLoad()}
+      />
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent pullingText="Trascina per ricaricare" />
@@ -427,34 +722,32 @@ const RefiningPage: React.FC = () => {
             </IonAccordion>
           </IonAccordionGroup>
 
-          <IonList className="cp-list refining-filter-list">
-            <IonItem lines="full">
-              <IonToggle
-                checked={lymhurstAnchor}
-                onIonChange={(e) => setLymhurstAnchor(!!e.detail.checked)}
-                justify="space-between"
-              >
-                <IonLabel>
-                  <h3 className="refining-toggle-title">Solo via Lymhurst</h3>
-                  <p className="refining-toggle-sub">Acquisto raw o vendita output include Lymhurst</p>
-                </IonLabel>
-              </IonToggle>
-            </IonItem>
-            <IonItem lines="full">
-              <IonToggle
-                checked={excludeBrecilien}
-                onIonChange={(e) => setExcludeBrecilien(!!e.detail.checked)}
-                justify="space-between"
-              >
-                <IonLabel>
-                  <h3 className="refining-toggle-title">Senza Brecilien</h3>
-                  <p className="refining-toggle-sub">
-                    Solo mercati royal continent (5 città). Spegni per usare anche Brecilien nei percorsi.
-                  </p>
-                </IonLabel>
-              </IonToggle>
-            </IonItem>
-          </IonList>
+          <div className="cp-toolbar refining-filter-toolbar">
+            <IonButton
+              fill={lymhurstAnchor ? 'solid' : 'clear'}
+              className="cp-toolbar-icon-btn"
+              onClick={() => setLymhurstAnchor((v) => !v)}
+              title="Richiedi passaggio da Lymhurst"
+            >
+              Lymhurst
+            </IonButton>
+            <IonButton
+              fill={excludeBrecilien ? 'clear' : 'solid'}
+              className="cp-toolbar-icon-btn"
+              onClick={() => setExcludeBrecilien((v) => !v)}
+              title="Includi o escludi Brecilien"
+            >
+              Brecilien
+            </IonButton>
+            <IonButton
+              fill={optimalRouteOnly ? 'solid' : 'clear'}
+              className="cp-toolbar-icon-btn"
+              onClick={() => setOptimalRouteOnly((v) => !v)}
+              title="Solo percorso ottimale per distanza (max 3)"
+            >
+              Ottimale
+            </IonButton>
+          </div>
 
           {view === 'arbitrage' && loading && (
             <div className="cp-state-container">
@@ -470,13 +763,13 @@ const RefiningPage: React.FC = () => {
             </div>
           )}
 
-          {view === 'arbitrage' && !loading && !error && rows.length > 0 && (
+          {view === 'arbitrage' && !loading && !error && visibleRows.length > 0 && (
             <>
               <p className="refining-list-hint">
-                {rows.length} risultat{rows.length === 1 ? 'o' : 'i'} · tocca per dettaglio
+                {visibleRows.length} risultat{visibleRows.length === 1 ? 'o' : 'i'} · tocca per dettaglio
               </p>
               <IonList className="cp-list refining-compact-list">
-                {rows.map((r) => {
+                {visibleRows.map((r) => {
                   const q = arbitrageBatchQty(r);
                   return (
                     <IonItem
@@ -485,7 +778,7 @@ const RefiningPage: React.FC = () => {
                       detail
                       lines="full"
                       className="refining-compact-item"
-                      onClick={() => setDetail({ kind: 'arbitrage', row: r })}
+                      onClick={() => openDetailRoot({ kind: 'arbitrage', row: r })}
                     >
                       {r.refinedIconUrl && (
                         <IonThumbnail slot="start" className="refining-compact-thumb-wrap">
@@ -517,12 +810,12 @@ const RefiningPage: React.FC = () => {
             </>
           )}
 
-          {view === 'arbitrage' && !loading && !error && rows.length === 0 && (
+          {view === 'arbitrage' && !loading && !error && visibleRows.length === 0 && (
             <div className="cp-state-container refining-empty">
               <IonIcon icon={informationCircleOutline} className="refining-empty-icon" />
               <p className="refining-empty-title">Nessun margine</p>
               <p className="refining-empty-text">
-                Prova a disattivare Lymhurst o aggiorna i prezzi da <strong>Impostazioni</strong>.
+                Prova a rilassare i filtri (Lymhurst/Brecilien/Ottimale) o aggiorna i prezzi da <strong>Impostazioni</strong>.
               </p>
             </div>
           )}
@@ -541,13 +834,13 @@ const RefiningPage: React.FC = () => {
             </div>
           )}
 
-          {view === 'focus' && !focusLoading && !focusError && focusRows.length > 0 && (
+          {view === 'focus' && !focusLoading && !focusError && visibleFocusRows.length > 0 && (
             <>
               <p className="refining-list-hint">
-                {focusRows.length} pian{focusRows.length === 1 ? 'o' : 'i'} · tocca per dettaglio
+                {visibleFocusRows.length} pian{visibleFocusRows.length === 1 ? 'o' : 'i'} · tocca per dettaglio
               </p>
               <IonList className="cp-list refining-compact-list">
-                {focusRows.map((p, idx) => {
+                {visibleFocusRows.map((p, idx) => {
                   const q = focusBatchQty(p);
                   return (
                     <IonItem
@@ -556,7 +849,7 @@ const RefiningPage: React.FC = () => {
                       detail
                       lines="full"
                       className="refining-compact-item"
-                      onClick={() => setDetail({ kind: 'focus', row: p })}
+                      onClick={() => openDetailRoot({ kind: 'focus', row: p })}
                     >
                       {p.outputRefinedItemId && (
                         <IonThumbnail slot="start" className="refining-compact-thumb-wrap">
@@ -588,12 +881,12 @@ const RefiningPage: React.FC = () => {
             </>
           )}
 
-          {view === 'focus' && !focusLoading && !focusError && focusRows.length === 0 && (
+          {view === 'focus' && !focusLoading && !focusError && visibleFocusRows.length === 0 && (
             <div className="cp-state-container refining-empty">
               <IonIcon icon={informationCircleOutline} className="refining-empty-icon" />
               <p className="refining-empty-title">Nessun piano</p>
               <p className="refining-empty-text">
-                Aggiorna i mercati da <strong>Impostazioni → Royal Continent</strong>.
+                Prova a disattivare il filtro Ottimale o aggiorna i mercati da <strong>Impostazioni → Royal Continent</strong>.
               </p>
             </div>
           )}
@@ -603,6 +896,13 @@ const RefiningPage: React.FC = () => {
           <IonHeader>
             <IonToolbar>
               <IonTitle>Dettaglio</IonTitle>
+              {detailHistory.length > 1 && (
+                <IonButtons slot="start">
+                  <IonButton onClick={backDetail} aria-label="Indietro" title="Indietro">
+                    <IonIcon icon={chevronBackOutline} />
+                  </IonButton>
+                </IonButtons>
+              )}
               <IonButtons slot="end">
                 <IonButton onClick={closeDetail}>Chiudi</IonButton>
               </IonButtons>
@@ -610,10 +910,23 @@ const RefiningPage: React.FC = () => {
           </IonHeader>
           <IonContent className="ion-padding">
             {detail?.kind === 'arbitrage' && (
-              <ArbitrageDetailBody r={detail.row} onClose={closeDetail} />
+              <ArbitrageDetailBody
+                r={detail.row}
+                rowsPool={rows}
+                transportSettings={transportLoad}
+                onOpenArbitrage={(row) => pushDetail({ kind: 'arbitrage', row })}
+                onClose={closeDetail}
+              />
             )}
             {detail?.kind === 'focus' && (
-              <FocusDetailBody p={detail.row} disclaimer={focusDisclaimer} onClose={closeDetail} />
+              <FocusDetailBody
+                p={detail.row}
+                focusPool={focusRows}
+                transportSettings={transportLoad}
+                onOpenFocus={(row) => pushDetail({ kind: 'focus', row })}
+                disclaimer={focusDisclaimer}
+                onClose={closeDetail}
+              />
             )}
           </IonContent>
         </IonModal>
