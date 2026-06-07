@@ -70,21 +70,11 @@ import {
   transportLoadFromCraftingSettings,
 } from '../utils/refiningTransport';
 import type { TransportLoadSettings } from '../utils/refiningTransport';
+import { formatItemLabel } from '../utils/itemDisplayName';
 import './CraftingPage.css';
 
 const formatPrice = (price: number) =>
   price > 0 ? price.toLocaleString('it-IT') : '—';
-
-const cleanItemName = (itemId: string): string => {
-  let name = itemId;
-  if (name.length > 3 && /^T\d/.test(name)) name = name.replace(/^T\d_/, '');
-  const at = name.indexOf('@');
-  if (at >= 0) name = name.substring(0, at) + ' .' + name.substring(at + 1);
-  const levelIdx = name.indexOf('_LEVEL');
-  if (levelIdx >= 0) name = name.substring(0, levelIdx);
-  name = name.replace(/^2H_/, '').replace(/^MAIN_/, '').replace(/^OFF_/, '');
-  return name.replaceAll('_', ' ').replaceAll(/\b\w/g, (c) => c.toUpperCase());
-};
 
 type FlipListMode = 'bm' | 'royal';
 type SavedListMode = 'all' | 'saved';
@@ -683,7 +673,7 @@ const FlipPage: React.FC = () => {
                         )}
                       </div>
                       <IonLabel>
-                        <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
+                        <h3 className="cp-item-name">{formatItemLabel(s.itemId)}</h3>
                         <div className="cp-meta">
                           <span>T{s.tier}</span>
                           {s.currentDataMissing ? (
@@ -753,7 +743,7 @@ const FlipPage: React.FC = () => {
                         )}
                       </div>
                       <IonLabel>
-                        <h3 className="cp-item-name">{cleanItemName(s.itemId)}</h3>
+                        <h3 className="cp-item-name">{formatItemLabel(s.itemId)}</h3>
                         <div className="cp-meta">
                           <span>T{s.tier}</span>
                           <span className="cp-rrr"> · {s.path === 'BO' ? 'Buy order' : 'Sell listino'}</span>
@@ -837,11 +827,10 @@ const FlipPage: React.FC = () => {
                           </div>
                           <IonLabel>
                             <h3 className="cp-item-name">
-                              {cleanItemName(item.itemId)} {isSaved && <span className="cp-saved-badge">Salvato</span>}
+                              {formatItemLabel(item.itemId, item.enchantment)} {isSaved && <span className="cp-saved-badge">Salvato</span>}
                             </h3>
                             <div className="cp-meta">
                               <span>T{item.tier}</span>
-                              {item.enchantment > 0 && <span> .{item.enchantment}</span>}
                               <span> · {item.category}</span>
                             </div>
                             <div className="cp-resources" style={{ marginTop: 6 }}>
@@ -954,11 +943,10 @@ const FlipPage: React.FC = () => {
                       </div>
                       <IonLabel>
                         <h3 className="cp-item-name">
-                          {cleanItemName(r.itemId)} {isSavedRoyal && <span className="cp-saved-badge">Salvato</span>}
+                          {formatItemLabel(r.itemId, r.enchantment)} {isSavedRoyal && <span className="cp-saved-badge">Salvato</span>}
                         </h3>
                         <div className="cp-meta">
                           <span>T{r.tier}</span>
-                          {r.enchantment > 0 && <span> .{r.enchantment}</span>}
                           <span> · {r.category}</span>
                         </div>
                         {boLine}

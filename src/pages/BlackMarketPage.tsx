@@ -61,6 +61,7 @@ import type { AvailabilityLevelCode, CraftingProfitResponse, SavedCraftingItemRe
 import AppHeader from '../components/AppHeader';
 import { StockAvailabilityIcon } from '../components/StockAvailabilityIcon';
 import { formatYieldPercent, yieldPercentFromProfitAndCost } from '../utils/yieldPercent';
+import { formatItemLabel } from '../utils/itemDisplayName';
 import './CraftingPage.css';
 
 const formatPrice = (price: number) =>
@@ -83,15 +84,6 @@ const AVAIL_OPTIONS: { value: AvailabilityLevelCode; label: string }[] = [
   { value: 'MEDIUM', label: 'Medio' },
   { value: 'HIGH', label: 'Alto' },
 ];
-
-const cleanItemName = (itemId: string): string => {
-  let name = itemId;
-  if (name.length > 3 && /^T\d_/.test(name)) name = name.substring(3);
-  const levelIdx = name.indexOf('_LEVEL');
-  if (levelIdx >= 0) name = name.substring(0, levelIdx);
-  name = name.replace(/^2H_/, '').replace(/^MAIN_/, '').replace(/^OFF_/, '');
-  return name.replaceAll('_', ' ').replaceAll(/\b\w/g, (c) => c.toUpperCase());
-};
 
 type ListMode = 'all' | 'saved';
 
@@ -423,7 +415,7 @@ const BlackMarketPage: React.FC = () => {
                           >
                             <img
                               src={item.iconUrl ?? undefined}
-                              alt={cleanItemName(item.itemId)}
+                              alt={formatItemLabel(item.itemId, item.enchantment)}
                               className={`cp-item-icon ${expandedIcon === item.itemId ? 'expanded' : ''}`}
                               loading="lazy"
                               onError={() => setFailedIcons((prev) => new Set(prev).add(item.itemId))}
@@ -432,7 +424,9 @@ const BlackMarketPage: React.FC = () => {
                         </div>
 
                         <IonLabel>
-                          <h3 className="cp-item-name">{cleanItemName(item.itemId)}</h3>
+                          <h3 className="cp-item-name">
+                            {formatItemLabel(item.itemId, item.enchantment)}
+                          </h3>
                           <div className="cp-resources">
                             {item.primaryResourceIconUrl && (
                               <img src={item.primaryResourceIconUrl} alt="" className="cp-res-icon" />
@@ -575,7 +569,7 @@ const BlackMarketPage: React.FC = () => {
                             label={s.stockAvailabilityLabel}
                           />
                         </span>
-                        {cleanItemName(s.itemId)}
+                        {formatItemLabel(s.itemId)}
                       </h3>
                       <div className="cp-meta cp-saved-live-meta">
                         {s.currentDataMissing ? (
@@ -663,7 +657,7 @@ const BlackMarketPage: React.FC = () => {
           >
             <IonHeader className="craft-detail-header">
               <IonToolbar>
-                <IonTitle>{detailItem ? cleanItemName(detailItem.itemId) : ''}</IonTitle>
+                <IonTitle>{detailItem ? formatItemLabel(detailItem.itemId) : ''}</IonTitle>
                 <IonButtons slot="end">
                   <IonButton onClick={() => setDetailItem(null)} fill="clear">Chiudi</IonButton>
                 </IonButtons>

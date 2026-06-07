@@ -3,6 +3,7 @@ import { LocalNotifications, type Schedule } from '@capacitor/local-notification
 import type { FlipProfitResponse } from '../types';
 import { getFlipProfits } from './api';
 import { getNotificationPermissionStatus } from './albionNotifications';
+import { formatItemLabel } from '../utils/itemDisplayName';
 
 /** Soglia profitto Flip (Caerleon → BM) per l'avviso su dispositivo nativo */
 export const FLIP_PROFIT_ALERT_THRESHOLD = 100_000;
@@ -36,17 +37,6 @@ function saveCooldowns(map: Record<string, number>) {
   } catch {
     /* ignore */
   }
-}
-
-function shortFlipLabel(itemId: string): string {
-  let name = itemId;
-  if (name.length > 3 && /^T\d/.test(name)) name = name.replace(/^T\d_/, '');
-  const at = name.indexOf('@');
-  if (at >= 0) name = `${name.slice(0, at)} .${name.slice(at + 1)}`;
-  const levelIdx = name.indexOf('_LEVEL');
-  if (levelIdx >= 0) name = name.substring(0, levelIdx);
-  name = name.replace(/^2H_/, '').replace(/^MAIN_/, '').replace(/^OFF_/, '');
-  return name.replaceAll('_', ' ').replaceAll(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** Id notifica Android: intero 32 bit stabile per item */
@@ -92,7 +82,7 @@ async function notifyFlipHighProfitsIfNeeded(items: FlipProfitResponse[]): Promi
     if (now - last < COOLDOWN_PER_ITEM_MS) continue;
     cd[item.itemId] = now;
     const profitStr = item.profit.toLocaleString('it-IT');
-    digestLines.push(`${shortFlipLabel(item.itemId)} +${profitStr}`);
+    digestLines.push(`${formatItemLabel(item.itemId, item.enchantment)} +${profitStr}`);
   }
 
   if (digestLines.length === 0) return;

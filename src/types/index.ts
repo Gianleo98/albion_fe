@@ -55,6 +55,7 @@ export interface SortOption {
 export interface CraftingProfitResponse {
   itemId: string;
   tier: number;
+  enchantment: number;
   iconUrl: string | null;
   bonusCategory: string | null;
   primaryResourceId: string;
