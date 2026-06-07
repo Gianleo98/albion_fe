@@ -667,6 +667,17 @@
   color: var(--ion-color-primary);
 }
 
+.cp-market-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(var(--ion-color-medium-rgb), 0.2);
+  color: var(--ion-color-medium-shade);
+}
+
 /* Profit column */
 .cp-profit-col {
   display: flex;

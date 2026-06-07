@@ -472,10 +472,19 @@ const BlackMarketPage: React.FC = () => {
                             )}
                           </div>
                           <div className="cp-meta">
-                            <span className="cp-rrr">RRR {item.returnRate}%</span>
+                            {item.returnRate > 0 && (
+                              <span className="cp-rrr">RRR {item.returnRate}%</span>
+                            )}
+                            {item.returnRate <= 0 && item.enchantment > 0 && (
+                              <span className="cp-market-badge">Mercato</span>
+                            )}
                             {isSaved && <span className="cp-saved-badge">Salvato</span>}
-                            {item.hasCityBonus && <span className="cp-bonus-badge">Bonus</span>}
-                            {item.hasDailyBonus && <span className="cp-daily-badge">Bonus daily</span>}
+                            {item.returnRate > 0 && item.hasCityBonus && (
+                              <span className="cp-bonus-badge">Bonus</span>
+                            )}
+                            {item.returnRate > 0 && item.hasDailyBonus && (
+                              <span className="cp-daily-badge">Bonus daily</span>
+                            )}
                           </div>
                         </IonLabel>
 
@@ -718,7 +727,11 @@ const BlackMarketPage: React.FC = () => {
                         </div>
                         <div className="comparison-row">
                           <div className="comparison-metric-name">Profitto verso BM</div>
-                          <p className="detail-metric-hint">Dopo costo materiali e bonus RRR.</p>
+                          <p className="detail-metric-hint">
+                            {detailItem.returnRate > 0
+                              ? 'Dopo costo materiali e bonus RRR.'
+                              : 'Dopo costo di acquisto/enchant su mercato (senza RRR).'}
+                          </p>
                           <div className="comparison-columns">
                             <div className="comparison-col">
                               <span className="comparison-col-label">Al salvataggio</span>
