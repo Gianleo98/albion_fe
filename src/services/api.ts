@@ -234,11 +234,13 @@ export const getFlipProfits = async (
   sortBy: string = 'PROFIT',
   sortDirection: 'ASC' | 'DESC' = 'DESC',
   nameSearch?: string,
-  materialsUnderAvg?: boolean
+  materialsUnderAvg?: boolean,
+  caerleonPreparation?: boolean
 ): Promise<PageResponse<FlipProfitResponse>> => {
   const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
   if (materialsUnderAvg === true) params.materialsUnderAvg = true;
+  if (caerleonPreparation === true) params.caerleonPreparation = true;
   const { data } = await api.get<PageResponse<FlipProfitResponse>>('/api/flip', { params });
   return data;
 };

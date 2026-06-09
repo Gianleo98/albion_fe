@@ -165,6 +165,13 @@ export interface FlipProfitResponse {
   profitPercentage: number;
   taxPercentApplied: number;
   iconUrl: string | null;
+  caerleonPreparation?: boolean;
+  effectiveCost?: number;
+  totalPreparationCost?: number;
+  returnRate?: number;
+  hasCityBonus?: boolean;
+  hasDailyBonus?: boolean;
+  preparationPathLabel?: string | null;
 }
 
 export interface SavedFlipItemResponse {

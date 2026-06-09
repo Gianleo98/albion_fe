@@ -38,6 +38,8 @@ import {
   listOutline,
   homeOutline,
   home,
+  hammerOutline,
+  hammer,
 } from 'ionicons/icons';
 import {
   getFlipProfits,
@@ -104,6 +106,7 @@ const FlipPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
+  const [caerleonPreparation, setCaerleonPreparation] = useState(false);
   /** Royal: BO = listino → buy order; SO = listino → sell listino */
   const [royalFlipPath, setRoyalFlipPath] = useState<'BO' | 'SO'>('BO');
   /** Solo item homepage + rotte dove partenza o arrivo mammouth è sempre Lymhurst (vs FS/BW); stima carico */
@@ -133,7 +136,7 @@ const FlipPage: React.FC = () => {
     setLoading(true);
     void fetchItems(0, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ordinamento gestito da handleSortChange
-  }, [nameSearch, materialsUnderAvg]);
+  }, [nameSearch, materialsUnderAvg, caerleonPreparation]);
 
   useEffect(() => {
     if (flipListMode !== 'royal') return;
@@ -183,7 +186,8 @@ const FlipPage: React.FC = () => {
             sort,
             direction,
             nameSearch || undefined,
-            materialsUnderAvg || undefined
+            materialsUnderAvg || undefined,
+            caerleonPreparation || undefined
           );
           if (reset) {
             setItems(data.content);
@@ -243,7 +247,16 @@ const FlipPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [sortBy, sortDirection, nameSearch, materialsUnderAvg, flipListMode, royalFlipPath, lymhurstLocalHomeFlip]
+    [
+      sortBy,
+      sortDirection,
+      nameSearch,
+      materialsUnderAvg,
+      caerleonPreparation,
+      flipListMode,
+      royalFlipPath,
+      lymhurstLocalHomeFlip,
+    ]
   );
 
   const fetchSavedIds = useCallback(async () => {
@@ -361,12 +374,21 @@ const FlipPage: React.FC = () => {
       const next = m === 'bm' ? 'royal' : 'bm';
       if (next === 'royal') {
         setRoyalFlipPath('BO');
+        setCaerleonPreparation(false);
       } else {
         setLymhurstLocalHomeFlip(false);
       }
       return next;
     });
     setSortBy('PROFIT');
+    setItems([]);
+    setPage(0);
+    setHasMore(true);
+    setError(null);
+  };
+
+  const toggleCaerleonPreparation = () => {
+    setCaerleonPreparation((prev) => !prev);
     setItems([]);
     setPage(0);
     setHasMore(true);
@@ -493,6 +515,17 @@ const FlipPage: React.FC = () => {
                 <IonIcon icon={lymhurstLocalHomeFlip ? home : homeOutline} />
               </button>
             )}
+            {flipListMode === 'bm' && (
+              <button
+                type="button"
+                className={`cp-filter-below-btn ${caerleonPreparation ? 'active' : ''}`}
+                onClick={toggleCaerleonPreparation}
+                title="Usa prezzi Caerleon per materiali, item base e rune/soul/relic: confronta craft .0 con RRR vs comprare item e incantarlo senza RRR."
+                aria-label="Attiva preparazione Caerleon"
+              >
+                <IonIcon icon={caerleonPreparation ? hammer : hammerOutline} />
+              </button>
+            )}
             <button
               type="button"
               className={`cp-filter-below-btn ${
@@ -552,6 +585,17 @@ const FlipPage: React.FC = () => {
             </p>
           )}
 
+          {flipListMode === 'bm' && caerleonPreparation && (
+            <p
+              className="cp-count"
+              style={{ margin: '6px 12px 4px', fontSize: '0.78rem', opacity: 0.78, lineHeight: 1.4 }}
+            >
+              <strong>Preparazione Caerleon:</strong> confronta craft .0 con materiali Caerleon, acquisto item pronto
+              e acquisto item base da incantare. Il <strong>RRR</strong> viene applicato solo quando il percorso scelto
+              crafta la base; l&apos;enchant e gli acquisti restano a costo pieno.
+            </p>
+          )}
+
           <div className="cp-toolbar">
             {sortOptions.length > 0 && (
               <IonItem className="cp-sort-selector" lines="none">
@@ -587,7 +631,9 @@ const FlipPage: React.FC = () => {
                 ? royalFlipPath === 'BO'
                   ? ' — listino → buy order'
                   : ' — listino → sell listino'
-                : ''}
+                : caerleonPreparation
+                  ? ' — preparazione Caerleon'
+                  : ''}
             </p>
           )}
           {!loading && savedListMode === 'saved' && flipListMode === 'bm' && (
@@ -788,6 +834,10 @@ const FlipPage: React.FC = () => {
                 {items.map((item) => {
                   if (!isRoyalRow(item)) {
                     const isSaved = savedItemIds.has(item.itemId);
+                    const prepMode = !!item.caerleonPreparation;
+                    const effectiveCost = item.effectiveCost && item.effectiveCost > 0
+                      ? item.effectiveCost
+                      : item.caerleonSellPriceMin;
                     return (
                       <IonItemSliding key={item.itemId}>
                         <IonItem className="cp-item">
@@ -835,13 +885,29 @@ const FlipPage: React.FC = () => {
                             </div>
                             <div className="cp-resources" style={{ marginTop: 6 }}>
                               <span className="cp-res-price cp-res-price--equal">
-                                Caerleon: {formatPrice(item.caerleonSellPriceMin)}
+                                {prepMode ? 'Costo prep' : 'Caerleon'}: {formatPrice(effectiveCost)}
                               </span>
                               <span className="cp-res-sep">→</span>
                               <span>BM buy: {formatPrice(item.blackMarketBuyPriceMax)}</span>
                             </div>
+                            {prepMode && (
+                              <div className="cp-meta" style={{ marginTop: 4 }}>
+                                <span className="cp-rrr">{item.preparationPathLabel ?? 'Percorso migliore'}</span>
+                                {(item.returnRate ?? 0) > 0 && (
+                                  <span className="cp-rrr">RRR {item.returnRate?.toFixed(1)}%</span>
+                                )}
+                                {(item.returnRate ?? 0) <= 0 && item.enchantment > 0 && (
+                                  <span className="cp-market-badge">Enchant senza RRR</span>
+                                )}
+                                {item.hasCityBonus && <span className="cp-bonus-badge">Bonus</span>}
+                                {item.hasDailyBonus && <span className="cp-daily-badge">Bonus daily</span>}
+                              </div>
+                            )}
                             <div style={{ fontSize: '0.8rem', opacity: 0.75, marginTop: 4 }}>
                               Netto BM: {formatPrice(item.revenueAfterTax)} (tassa {item.taxPercentApplied}%)
+                              {prepMode && item.caerleonSellPriceMin > 0 && (
+                                <> · pronto Caerleon {formatPrice(item.caerleonSellPriceMin)}</>
+                              )}
                             </div>
                           </IonLabel>
                           <div slot="end" className="cp-profit-col">
