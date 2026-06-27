@@ -398,6 +398,27 @@
   color: var(--ion-color-tertiary-contrast);
 }
 
+.cp-source-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cp-source-badge--craft {
+  background: rgba(45, 211, 111, 0.22);
+  color: #6ee7a8;
+}
+
+.cp-source-badge--enchant {
+  background: rgba(147, 112, 219, 0.25);
+  color: #c4b5fd;
+}
+
 .cp-saved-chips {
   display: flex;
   flex-wrap: wrap;
@@ -753,6 +774,10 @@
 .cp-bm-price {
   font-size: 0.7rem;
   color: var(--ion-color-tertiary);
+}
+
+.cp-bm-price--spot {
+  color: var(--ion-color-medium);
 }
 
 .cp-cost {

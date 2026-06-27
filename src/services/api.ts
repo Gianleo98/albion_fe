@@ -149,11 +149,13 @@ export const getCraftingProfits = async (
   sortBy: string = 'PROFIT',
   sortDirection: 'ASC' | 'DESC' = 'DESC',
   nameSearch?: string,
-  materialsUnderAvg?: boolean
+  materialsUnderAvg?: boolean,
+  sourceFilter?: 'CRAFT' | 'ENCHANT'
 ): Promise<PageResponse<CraftingProfitResponse>> => {
   const params: Record<string, unknown> = { page, size, sortBy, sortDirection };
   if (nameSearch != null && nameSearch.trim() !== '') params.nameSearch = nameSearch.trim();
   if (materialsUnderAvg === true) params.materialsUnderAvg = true;
+  if (sourceFilter === 'CRAFT' || sourceFilter === 'ENCHANT') params.sourceFilter = sourceFilter;
   const { data } = await api.get<PageResponse<CraftingProfitResponse>>('/api/crafting-profit', { params });
   return data;
 };

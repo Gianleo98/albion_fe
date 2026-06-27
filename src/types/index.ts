@@ -82,7 +82,10 @@ export interface CraftingProfitResponse {
   crestPriceLevel?: 'below' | 'equal' | 'above';
   totalMaterialCost: number;
   effectiveCost: number;
+  /** Buy order BM max ultimi 2gg (base profitto potenziale). */
   bmSellPrice: number;
+  /** Buy order BM spot attuale. */
+  bmSellPriceNow?: number;
   profit: number;
   profitPercentage: number;
   returnRate: number;
@@ -105,6 +108,8 @@ export interface SavedItemTrackingPayload {
 export interface SavedCraftingItemResponse {
   itemId: string;
   tier: number;
+  /** 0 = craft .0, 1–3 = enchant verso BM */
+  enchantment?: number;
   iconUrl: string | null;
   currentDataMissing?: boolean;
   listedForSale?: boolean;
@@ -144,7 +149,10 @@ export interface SavedCraftingItemResponse {
   savedEffectiveCost: number;
   savedProfit: number;
   savedAt: string;
+  /** Buy order BM max ultimi 2gg. */
   currentBmPrice: number;
+  /** Buy order BM spot attuale. */
+  currentBmPriceNow?: number;
   currentEffectiveCost: number;
   currentProfit: number;
   bmPriceDiff: number;
