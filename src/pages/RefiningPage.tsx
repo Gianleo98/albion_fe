@@ -44,6 +44,11 @@ function compactItemId(itemId: string): string {
   return itemId.replace(/_LEVEL\d+@?\d*/g, '').replace(/_/g, ' ');
 }
 
+function enchantSuffix(level?: number): string {
+  if (level == null || level <= 0) return '';
+  return ` .${level}`;
+}
+
 function arbitrageBatchQty(r: RefiningOpportunityResponse): { raw: number; lower: number; out: number } {
   const tier = typeof r.tier === 'number' && r.tier >= 4 && r.tier <= 8 ? r.tier : 4;
   const out = typeof r.outputPerBatch === 'number' && r.outputPerBatch > 0 ? r.outputPerBatch : 100;
@@ -121,6 +126,7 @@ function ArbitrageDetailBody({
         <div>
           <h2 className="refining-detail-hero-title">
             {r.resourceLineLabel} · output T{r.tier}
+            {enchantSuffix(r.enchantmentLevel)}
           </h2>
           <p className="refining-detail-hero-id">{compactItemId(r.refinedItemId)}</p>
           <p className="refining-detail-hero-profit">
@@ -200,7 +206,7 @@ function ArbitrageDetailBody({
                 <IonList className="cp-list refining-compact-list">
                   {returnOptions.map((x) => (
                     <IonItem
-                      key={`${x.rawItemId}-${x.tier}-${x.buyRawCity}-${x.sellRefinedCity}`}
+                      key={`${x.rawItemId}-${x.tier}-${x.enchantmentLevel ?? 0}-${x.buyRawCity}-${x.sellRefinedCity}`}
                       lines="full"
                       className="refining-compact-item"
                       button
@@ -222,6 +228,7 @@ function ArbitrageDetailBody({
                       <IonLabel>
                         <h3 className="refining-compact-title">
                           {x.resourceLineLabel} · T{x.tier}
+                          {enchantSuffix(x.enchantmentLevel)}
                         </h3>
                         <p className="refining-compact-sub">
                           {x.buyRawCity} {'->'} {x.refineBonusCity} {'->'} {x.sellRefinedCity}
@@ -263,6 +270,7 @@ function FocusDetailBody({
   disclaimer?: string;
   onClose: () => void;
 }) {
+  const enchant = p.enchantmentLevel ?? 0;
   const lowerIsEnchanted = !!p.lowerRefinedItemId?.includes('_LEVEL');
   const rawQty = p.materials?.[0]?.quantity ?? p.rawInputPerBatch ?? 0;
   const lowerQty = p.materials?.[1]?.quantity ?? p.lowerRefinedInputPerBatch ?? 0;
@@ -291,7 +299,7 @@ function FocusDetailBody({
         )}
         <div>
           <h2 className="refining-detail-hero-title">
-            {p.resourceLineLabel} · T{p.tier} .{p.enchantmentLevel}
+            {p.resourceLineLabel} · T{p.tier} .{enchant}
           </h2>
           {p.outputRefinedItemId ? (
             <p className="refining-detail-hero-id">{compactItemId(p.outputRefinedItemId)}</p>
@@ -304,16 +312,16 @@ function FocusDetailBody({
       </div>
 
       <p className="refining-recipe-banner">
-        <span className="refining-qty">{rawQty}</span> raw T{p.tier} .3 + <span className="refining-qty">{lowerQty}</span>{' '}
-        {lowerIsEnchanted && p.tier != null ? `raff. T${p.tier - 1} .3` : 'raff. T3 norm.'} →{' '}
-        <span className="refining-qty">{out}</span> out .3
+        <span className="refining-qty">{rawQty}</span> raw T{p.tier} .{enchant} + <span className="refining-qty">{lowerQty}</span>{' '}
+        {lowerIsEnchanted && p.tier != null ? `raff. T${p.tier - 1} .${enchant}` : 'raff. T3 norm.'} →{' '}
+        <span className="refining-qty">{out}</span> out .{enchant}
       </p>
 
       <div className="refining-prices-block">
         <div className="refining-prices-title">Prezzi (listini)</div>
         <ul className="refining-prices-list">
           <li>
-            <strong>Raw .3</strong>: {rawQty} pz a {perPz(p.materials?.[0]?.unitPriceSilver ?? 0)} @ {p.buyRawCity} →{' '}
+            <strong>Raw .{enchant}</strong>: {rawQty} pz a {perPz(p.materials?.[0]?.unitPriceSilver ?? 0)} @ {p.buyRawCity} →{' '}
             <strong>{formatPrice(p.materials?.[0]?.lineTotalSilver ?? 0)}</strong>
           </li>
           <li>
@@ -321,7 +329,7 @@ function FocusDetailBody({
             {p.refineBonusCity} → <strong>{formatPrice(p.materials?.[1]?.lineTotalSilver ?? 0)}</strong>
           </li>
           <li>
-            <strong>Output .3</strong>: {out} pz a {perPz(p.outputUnitSellSilver ?? 0)} @ {p.sellRefinedCity}
+            <strong>Output .{enchant}</strong>: {out} pz a {perPz(p.outputUnitSellSilver ?? 0)} @ {p.sellRefinedCity}
             {p.taxPercentApplied != null ? ` · tassa ${p.taxPercentApplied}%` : ''}
           </li>
         </ul>
@@ -331,7 +339,7 @@ function FocusDetailBody({
         <div className="refining-step">
           <span className="refining-step-num">1</span>
           <span>
-            Raw .3 → <strong>{p.buyRawCity}</strong>
+            Raw .{enchant} → <strong>{p.buyRawCity}</strong>
           </span>
         </div>
         <div className="refining-step">
@@ -416,7 +424,7 @@ function FocusDetailBody({
                       )}
                       <IonLabel>
                         <h3 className="refining-compact-title">
-                          {x.resourceLineLabel} · T{x.tier} .3
+                          {x.resourceLineLabel} · T{x.tier} .{x.enchantmentLevel ?? 3}
                         </h3>
                         <p className="refining-compact-sub">
                           {x.buyRawCity} {'->'} {x.refineBonusCity} {'->'} {x.sellRefinedCity}
@@ -660,6 +668,7 @@ const RefiningPage: React.FC = () => {
       </li>
       <li>
         Ricetta per 100 output: fino al T7 <strong>300 + 100</strong> raffinato (t−1); T8 <strong>500 + 100</strong>.
+        Include anche materiali <strong>@1–@3</strong> (pietra solo flat).
       </li>
       <li>
         <strong>Prezzi:</strong> Impostazioni → <strong>Aggiorna Royal Continent</strong>.
@@ -673,10 +682,10 @@ const RefiningPage: React.FC = () => {
         Stessi filtri Lymhurst e <strong>Senza Brecilien</strong> del tab Opportunità (5 royal vs + Brecilien).
       </li>
       <li>
-        Materiali <strong>.3</strong>; costo con RRR focus ~<strong>53,9%</strong> (senza ~36,7%).
+        Materiali <strong>@1–@3</strong>; costo con RRR focus ~<strong>53,9%</strong> (senza ~36,7%).
       </li>
       <li>
-        T4 .3 usa <strong>T3 raffinato normale</strong>; dal T5 raffinato .3 del tier sotto.
+        T4 @n usa <strong>T3 raffinato normale</strong>; dal T5 raffinato @n del tier sotto.
       </li>
       <li>
         <strong>Prezzi:</strong> come sopra (Royal Continent).
@@ -707,7 +716,7 @@ const RefiningPage: React.FC = () => {
               <IonLabel>Opportunità</IonLabel>
             </IonSegmentButton>
             <IonSegmentButton value="focus">
-              <IonLabel>Focus .3</IonLabel>
+              <IonLabel>Focus @1–3</IonLabel>
             </IonSegmentButton>
           </IonSegment>
 
@@ -773,7 +782,7 @@ const RefiningPage: React.FC = () => {
                   const q = arbitrageBatchQty(r);
                   return (
                     <IonItem
-                      key={`${r.rawItemId}-${r.lowerRefinedItemId}-${r.buyRawCity}-${r.sellRefinedCity}`}
+                      key={`${r.rawItemId}-${r.lowerRefinedItemId}-${r.enchantmentLevel ?? 0}-${r.buyRawCity}-${r.sellRefinedCity}`}
                       button
                       detail
                       lines="full"
@@ -795,6 +804,7 @@ const RefiningPage: React.FC = () => {
                       <IonLabel>
                         <h3 className="refining-compact-title">
                           {r.resourceLineLabel} · T{r.tier}
+                          {enchantSuffix(r.enchantmentLevel)}
                         </h3>
                         <p className="refining-compact-sub">
                           {q.raw} raw + {q.lower} raff. → {q.out}
@@ -844,7 +854,7 @@ const RefiningPage: React.FC = () => {
                   const q = focusBatchQty(p);
                   return (
                     <IonItem
-                      key={`${p.rawItemId}-${p.buyRawCity}-${p.sellRefinedCity}-${idx}`}
+                      key={`${p.rawItemId}-${p.enchantmentLevel ?? 0}-${p.buyRawCity}-${p.sellRefinedCity}-${idx}`}
                       button
                       detail
                       lines="full"
@@ -865,7 +875,7 @@ const RefiningPage: React.FC = () => {
                       )}
                       <IonLabel>
                         <h3 className="refining-compact-title">
-                          {p.resourceLineLabel} · T{p.tier} .3
+                          {p.resourceLineLabel} · T{p.tier} .{p.enchantmentLevel ?? 3}
                         </h3>
                         <p className="refining-compact-sub">
                           {q.raw}+{q.lower}→{q.out}

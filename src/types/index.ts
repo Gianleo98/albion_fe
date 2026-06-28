@@ -255,6 +255,8 @@ export interface RefiningOpportunityResponse {
   resourceLine: string;
   resourceLineLabel: string;
   tier: number;
+  /** 0 = flat, 1–3 = output @1–@3. */
+  enchantmentLevel?: number;
   rawItemId: string;
   lowerRefinedItemId: string;
   refinedItemId: string;

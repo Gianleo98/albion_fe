@@ -91,8 +91,9 @@ const AVAIL_OPTIONS: { value: AvailabilityLevelCode; label: string }[] = [
 type ListMode = 'all' | 'saved';
 type ProfitSourceFilter = 'all' | 'craft' | 'enchant';
 
-const isEnchantProfit = (enchantment: number) => enchantment > 0;
-const profitSourceLabel = (enchantment: number) => (isEnchantProfit(enchantment) ? 'Enchant' : 'Craft');
+const isDirectCraftProfit = (returnRate: number) => returnRate > 0;
+const profitSourceLabel = (enchantment: number, returnRate: number = 0) =>
+  isDirectCraftProfit(returnRate) || enchantment === 0 ? 'Craft' : 'Enchant';
 
 const showBmSpotNow = (max2d: number, now?: number) =>
   (now ?? 0) > 0 && now !== max2d;
@@ -116,7 +117,7 @@ const BlackMarketPage: React.FC = () => {
   const [nameSearch, setNameSearch] = useState('');
   const [materialsUnderAvg, setMaterialsUnderAvg] = useState(false);
   const [profitSourceFilter, setProfitSourceFilter] = useState<ProfitSourceFilter>('all');
-  const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean; enchantment: number } | null>(null);
+  const [saveAlertItem, setSaveAlertItem] = useState<{ itemId: string; isSaved: boolean; enchantment: number; returnRate: number } | null>(null);
   const [detailItem, setDetailItem] = useState<SavedCraftingItemResponse | null>(null);
   const [trListed, setTrListed] = useState(false);
   const [trSell, setTrSell] = useState<AvailabilityLevelCode>('NONE');
@@ -233,8 +234,8 @@ const BlackMarketPage: React.FC = () => {
     }
   }, [detailItem?.itemId, detailItem?.listedForSale, detailItem?.sellAvailability, detailItem?.stockAvailability]);
 
-  const openSaveAlert = (itemId: string, isSaved: boolean, enchantment: number) => {
-    setSaveAlertItem({ itemId, isSaved, enchantment });
+  const openSaveAlert = (itemId: string, isSaved: boolean, enchantment: number, returnRate: number) => {
+    setSaveAlertItem({ itemId, isSaved, enchantment, returnRate });
   };
 
   const cycleProfitSourceFilter = () => {
@@ -247,8 +248,8 @@ const BlackMarketPage: React.FC = () => {
 
   const handleSaveOrRemoveConfirm = async () => {
     if (!saveAlertItem) return;
-    const { itemId, isSaved, enchantment } = saveAlertItem;
-    const source = profitSourceLabel(enchantment);
+    const { itemId, isSaved, enchantment, returnRate } = saveAlertItem;
+    const source = profitSourceLabel(enchantment, returnRate);
     try {
       if (isSaved) {
         await deleteSavedCraftingItem(itemId);
@@ -375,10 +376,10 @@ const BlackMarketPage: React.FC = () => {
               onClick={cycleProfitSourceFilter}
               title={
                 profitSourceFilter === 'craft'
-                  ? 'Solo profit craft (.0). Tocca per solo enchant.'
+                  ? 'Solo craft con RRR (materiali .0 o enchant). Tocca per solo percorso enchant.'
                   : profitSourceFilter === 'enchant'
-                    ? 'Solo profit enchant (@1–@3). Tocca per reset.'
-                    : 'Filtra per tipo profit: craft → enchant → tutti'
+                    ? 'Solo percorso enchant mercato (base + rune/soul/relic). Tocca per reset.'
+                    : 'Filtra: craft RRR → enchant mercato → tutti'
               }
               aria-label="Filtra craft o enchant"
             >
@@ -539,8 +540,8 @@ const BlackMarketPage: React.FC = () => {
                               <span className="cp-market-badge">Mercato</span>
                             )}
                             {isSaved && (
-                              <span className={`cp-source-badge ${isEnchantProfit(item.enchantment) ? 'cp-source-badge--enchant' : 'cp-source-badge--craft'}`}>
-                                Salvato · {profitSourceLabel(item.enchantment)}
+                              <span className={`cp-source-badge ${isDirectCraftProfit(item.returnRate) ? 'cp-source-badge--craft' : 'cp-source-badge--enchant'}`}>
+                                Salvato · {profitSourceLabel(item.enchantment, item.returnRate)}
                               </span>
                             )}
                             {item.returnRate > 0 && item.hasCityBonus && (
@@ -570,10 +571,10 @@ const BlackMarketPage: React.FC = () => {
                           <span className="cp-cost">Costo: {formatPrice(item.effectiveCost > 0 ? item.effectiveCost : item.totalMaterialCost)}</span>
                         </div>
                       </IonItem>
-                      <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(item.itemId, isSaved, item.enchantment)}>
+                      <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(item.itemId, isSaved, item.enchantment, item.returnRate)}>
                         <IonItemOption
                           color={isSaved ? 'danger' : 'success'}
-                          onClick={() => openSaveAlert(item.itemId, isSaved, item.enchantment)}
+                          onClick={() => openSaveAlert(item.itemId, isSaved, item.enchantment, item.returnRate)}
                         >
                           <IonIcon icon={isSaved ? trashOutline : bookmarkOutline} slot="start" />
                           {isSaved ? 'Rimuovi' : 'Salva'}
@@ -652,8 +653,8 @@ const BlackMarketPage: React.FC = () => {
                         {formatItemLabel(s.itemId, s.enchantment ?? 0)}
                       </h3>
                       <div className="cp-meta">
-                        <span className={`cp-source-badge ${isEnchantProfit(s.enchantment ?? 0) ? 'cp-source-badge--enchant' : 'cp-source-badge--craft'}`}>
-                          {profitSourceLabel(s.enchantment ?? 0)}
+                        <span className={`cp-source-badge ${isDirectCraftProfit(s.returnRate ?? 0) ? 'cp-source-badge--craft' : 'cp-source-badge--enchant'}`}>
+                          {profitSourceLabel(s.enchantment ?? 0, s.returnRate ?? 0)}
                         </span>
                       </div>
                       <div className="cp-meta cp-saved-live-meta">
@@ -708,8 +709,8 @@ const BlackMarketPage: React.FC = () => {
                       </span>
                     </div>
                   </IonItem>
-                  <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(s.itemId, true, s.enchantment ?? 0)}>
-                    <IonItemOption color="danger" onClick={() => openSaveAlert(s.itemId, true, s.enchantment ?? 0)}>
+                  <IonItemOptions side="end" onIonSwipe={() => openSaveAlert(s.itemId, true, s.enchantment ?? 0, s.returnRate ?? 0)}>
+                    <IonItemOption color="danger" onClick={() => openSaveAlert(s.itemId, true, s.enchantment ?? 0, s.returnRate ?? 0)}>
                       <IonIcon icon={trashOutline} slot="start" />
                       Rimuovi
                     </IonItemOption>
@@ -733,7 +734,7 @@ const BlackMarketPage: React.FC = () => {
             header={saveAlertItem?.isSaved ? 'Rimuovi dai salvati' : 'Salva item'}
             message={saveAlertItem?.isSaved
               ? 'Rimuovere questo item dai salvati?'
-              : `Salvare questo item (${profitSourceLabel(saveAlertItem?.enchantment ?? 0)}) per tracciare il prezzo nel tempo?`}
+              : `Salvare questo item (${profitSourceLabel(saveAlertItem?.enchantment ?? 0, saveAlertItem?.returnRate ?? 0)}) per tracciare il prezzo nel tempo?`}
             buttons={[
               { text: 'Annulla', role: 'cancel' },
               { text: saveAlertItem?.isSaved ? 'Rimuovi' : 'Salva', handler: handleSaveOrRemoveConfirm },
@@ -752,7 +753,7 @@ const BlackMarketPage: React.FC = () => {
                     <>
                       {formatItemLabel(detailItem.itemId, detailItem.enchantment ?? 0)}
                       {' · '}
-                      {profitSourceLabel(detailItem.enchantment ?? 0)}
+                      {profitSourceLabel(detailItem.enchantment ?? 0, detailItem.returnRate ?? 0)}
                     </>
                   ) : ''}
                 </IonTitle>
